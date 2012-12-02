@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<targets>
+
+  <finrocplugin name="runtime_construction_actions" libs="dl">
+    <sources>
+      tConstructorParameters.cpp
+      tCreateFrameworkElementAction.cpp
+      tStandardCreateModuleAction.h
+    </sources>
+  </finrocplugin>
+
+  <finrocplugin name="runtime_construction">
+    <sources>
+      internal/dynamic_loading.cpp
+      tDataTypeReference.cpp
+      tFinstructableGroup.cpp
+      tGroup.cpp
+      tGroupInterface.cpp
+      tPortCreationList.cpp
+    </sources>
+  </finrocplugin>
+
+</targets>
