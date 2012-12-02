@@ -3,6 +3,7 @@
 
   <finrocplugin name="runtime_construction_actions" libs="dl">
     <sources>
+      tConstructorCreateModuleAction.h
       tConstructorParameters.cpp
       tCreateFrameworkElementAction.cpp
       tStandardCreateModuleAction.h

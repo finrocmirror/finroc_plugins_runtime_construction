@@ -129,7 +129,7 @@ class tConstructorCreateModuleAction : public tCreateFrameworkElementAction
 public:
 
   tConstructorCreateModuleAction(const std::string& name, const std::string& parameter_names) :
-    type_name(type_name),
+    type_name(name),
     group(GetBinary((void*)CreateModuleImplementation)),
     constructor_parameters()
   {
