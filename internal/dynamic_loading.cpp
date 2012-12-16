@@ -42,6 +42,7 @@
 // Internal includes with ""
 //----------------------------------------------------------------------
 #include "plugins/runtime_construction/tFinstructableGroup.h"
+#include "plugins/runtime_construction/tAdministrationService.h"
 
 //----------------------------------------------------------------------
 // Debugging
@@ -81,8 +82,10 @@ public:
 
   virtual void Init() // TODO mark override with gcc 4.7
   {
-    //new core::tAdminServer(); TODO
     tFinstructableGroup::StaticInit();
+
+    /*! Port that receives administration requests */
+    tAdministrationService::CreateAdministrationPort();
   }
 };
 
