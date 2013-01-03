@@ -163,7 +163,7 @@ void tAdministrationService::Connect(int source_port_handle, int destination_por
 
 void tAdministrationService::CreateAdministrationPort()
 {
-  rpc_ports::tServerPort<tAdministrationService>(cPORT_NAME, cTYPE, core::tFrameworkElement::tFlag::SHARED, administration_service);
+  rpc_ports::tServerPort<tAdministrationService>(administration_service, cPORT_NAME, cTYPE, core::tFrameworkElement::tFlag::SHARED);
 }
 
 std::string tAdministrationService::CreateModule(uint32_t create_action_index, const std::string& module_name, int parent_handle, const rrlib::serialization::tMemoryBuffer& serialized_creation_parameters)
@@ -507,6 +507,11 @@ std::string tAdministrationService::SetPortValue(int port_handle, const rrlib::s
   std::string error_message;
   if (port && port->IsReady())
   {
+    if (port->GetFlag(core::tFrameworkElement::tFlag::FINSTRUCT_READ_ONLY))
+    {
+      return "Port is read-only and cannot be set from finstruct";
+    }
+
     rrlib::thread::tLock lock(port->GetStructureMutex()); // TODO: obtaining structure lock is quite heavy-weight - however, set calls should not occur often
     if (port->IsReady())
     {
