@@ -73,7 +73,7 @@ namespace runtime_construction
 //----------------------------------------------------------------------
 static const char* cPORT_NAME = "Administration";
 
-static rpc_ports::tRPCInterfaceType<tAdministrationService> cTYPE("Administration", &tAdministrationService::Connect,
+static rpc_ports::tRPCInterfaceType<tAdministrationService> cTYPE("Administration Interface", &tAdministrationService::Connect,
     &tAdministrationService::CreateModule, &tAdministrationService::DeleteElement, &tAdministrationService::Disconnect,
     &tAdministrationService::DisconnectAll, &tAdministrationService::GetAnnotation, &tAdministrationService::GetCreateModuleActions,
     &tAdministrationService::GetModuleLibraries, &tAdministrationService::GetParameterInfo, &tAdministrationService::IsExecuting,
@@ -197,7 +197,7 @@ std::string tAdministrationService::CreateModule(uint32_t create_action_index, c
         if (create_action->GetParameterTypes() && create_action->GetParameterTypes()->Size() > 0)
         {
           parameters.reset(create_action->GetParameterTypes()->Instantiate());
-          rrlib::serialization::tInputStream input_stream(serialized_creation_parameters);
+          rrlib::serialization::tInputStream input_stream(serialized_creation_parameters, rrlib::serialization::tTypeEncoding::NAMES);
           for (size_t i = 0; i < parameters->Size(); i++)
           {
             parameters::internal::tStaticParameterImplementationBase& parameter = parameters->Get(i);
@@ -317,7 +317,7 @@ rrlib::serialization::tMemoryBuffer tAdministrationService::GetAnnotation(int el
 rrlib::serialization::tMemoryBuffer tAdministrationService::GetCreateModuleActions()
 {
   rrlib::serialization::tMemoryBuffer result_buffer;
-  rrlib::serialization::tOutputStream output_stream(result_buffer);
+  rrlib::serialization::tOutputStream output_stream(result_buffer, rrlib::serialization::tTypeEncoding::NAMES);
   const std::vector<tCreateFrameworkElementAction*>& module_types = tCreateFrameworkElementAction::GetConstructibleElements();
   for (size_t i = 0u; i < module_types.size(); i++)
   {
