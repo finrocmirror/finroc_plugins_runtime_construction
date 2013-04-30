@@ -115,7 +115,7 @@ private:
     tParameter(tConstructorParameters* parent, const ARGS&... args)
     {
       data_ports::tPortCreationInfo<T> creation_info(args...);
-      tImplementation* implementation = new tImplementation(creation_info, true);
+      tImplementation* implementation = tImplementation::CreateInstance(creation_info, true);
       this->SetImplementation(implementation);
       parent->Add(*implementation);
     }
