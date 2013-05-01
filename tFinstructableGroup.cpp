@@ -141,7 +141,7 @@ void tFinstructableGroup::AddDependency(const rrlib::rtti::tType& dt)
   }
 }
 
-void tFinstructableGroup::EvaluateStaticParameters()
+void tFinstructableGroup::OnStaticParameterChange()
 {
   if (xml_file.HasChanged() && xml_file.Get().length() > 0)
   {

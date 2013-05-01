@@ -147,7 +147,7 @@ public:
 //----------------------------------------------------------------------
 protected:
 
-  virtual void EvaluateStaticParameters(); // TODO mark override with gcc 4.7
+  virtual void OnStaticParameterChange(); // TODO mark override with gcc 4.7
 
 //----------------------------------------------------------------------
 // Private fields and methods
