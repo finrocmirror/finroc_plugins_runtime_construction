@@ -21,5 +21,11 @@
       tPortCreationList.cpp
     </sources>
   </finrocplugin>
+  
+  <finrocprogram name="finroc_run">
+    <sources>
+      pFinrocRun.cpp
+    </sources>
+  </finrocprogram>
 
 </targets>
