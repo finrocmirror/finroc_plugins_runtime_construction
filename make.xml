@@ -10,7 +10,7 @@
     </sources>
   </finrocplugin>
 
-  <finrocplugin name="runtime_construction">
+  <finrocplugin name="runtime_construction" libs="boost_filesystem">
     <sources>
       internal/dynamic_loading.cpp
       tAdministrationService.cpp
