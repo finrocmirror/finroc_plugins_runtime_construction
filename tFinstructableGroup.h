@@ -112,6 +112,8 @@ public:
 
   /*!
    * Save contents of group back to Xml file
+   *
+   * \exception Throws std::runtime_error if saving fails
    */
   void SaveXml();
 

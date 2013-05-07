@@ -32,7 +32,6 @@
 //----------------------------------------------------------------------
 // External includes (system with <>, local with "")
 //----------------------------------------------------------------------
-#include "rrlib/finroc_core_utils/tException.h"
 #include "core/port/tPortFactory.h"
 
 //----------------------------------------------------------------------
@@ -228,7 +227,8 @@ rrlib::serialization::tInputStream& operator >> (rrlib::serialization::tInputStr
       rrlib::rtti::tType dt = rrlib::rtti::tType::FindType(dt_name);
       if (dt == NULL)
       {
-        throw util::tRuntimeException("Type " + dt_name + " not available", CODE_LOCATION_MACRO);
+        FINROC_LOG_PRINT(ERROR, "Error checking port from port creation deserialization: Type " + dt_name + " not available");
+        throw std::runtime_error("Error checking port from port creation list deserialization: Type " + dt_name + " not available");
       }
       bool output = stream.ReadBoolean();
       list.CheckPort(ap, *list.io_vector, list.flags, name, dt, output, NULL);
@@ -294,7 +294,8 @@ const rrlib::xml::tNode& operator >> (const rrlib::xml::tNode& node, tPortCreati
     rrlib::rtti::tType dt = rrlib::rtti::tType::FindType(dt_name);
     if (dt == NULL)
     {
-      throw util::tRuntimeException(std::string("Type ") + dt_name + " not available", CODE_LOCATION_MACRO);
+      FINROC_LOG_PRINT(ERROR, "Error checking port from port creation deserialization: Type " + dt_name + " not available");
+      throw std::runtime_error("Error checking port from port creation list deserialization: Type " + dt_name + " not available");
     }
     list.CheckPort(ap, *list.io_vector, list.flags, port->GetStringAttribute("name"), dt, b, NULL);
   }

@@ -33,7 +33,7 @@
 // External includes (system with <>, local with "")
 //----------------------------------------------------------------------
 #include <set>
-#include "rrlib/finroc_core_utils/sFiles.h"
+#include "core/file_lookup.h"
 #include "core/tFrameworkElementTags.h"
 #include "core/tRuntimeEnvironment.h"
 #include "core/internal/tLinkEdge.h"
@@ -146,7 +146,7 @@ void tFinstructableGroup::OnStaticParameterChange()
   if (xml_file.HasChanged() && xml_file.Get().length() > 0)
   {
     //if (this.childCount() == 0) { // TODO: original intension: changing xml files to mutliple existing ones in finstruct shouldn't load all of them
-    if (util::sFiles::FinrocFileExists(xml_file.Get()))
+    if (core::FinrocFileExists(xml_file.Get()))
     {
       LoadXml(xml_file.Get());
     }
@@ -259,7 +259,7 @@ void tFinstructableGroup::Instantiate(const rrlib::xml::tNode& node, tFrameworkE
     FINROC_LOG_PRINT(WARNING, "Failed to instantiate element. Skipping...");
     LogException(e);
   }
-  catch (const util::tException& e)
+  catch (const std::exception& e)
   {
     FINROC_LOG_PRINT(WARNING, "Failed to instantiate element. Skipping...");
     FINROC_LOG_PRINT(WARNING, e);
@@ -278,7 +278,7 @@ void tFinstructableGroup::LoadXml(const std::string& xml_file_)
     try
     {
       FINROC_LOG_PRINT(DEBUG, "Loading XML: ", xml_file_);
-      rrlib::xml::tDocument doc(util::sFiles::GetFinrocXMLDocument(xml_file_, false));
+      rrlib::xml::tDocument doc(core::GetFinrocXMLDocument(xml_file_, false));
       rrlib::xml::tNode& root = doc.RootNode();
       link_tmp = GetQualifiedName() + "/";
       if (main_name.length() == 0 && root.HasAttribute("defaultname"))
@@ -424,10 +424,10 @@ void tFinstructableGroup::SaveXml()
     tLock lock2(GetStructureMutex());
     saving_thread = &rrlib::thread::tThread::CurrentThread();
     dependencies_tmp.clear();
-    std::string save_to = util::sFiles::GetFinrocFileToSaveTo(xml_file.Get());
+    std::string save_to = core::GetFinrocFileToSaveTo(xml_file.Get());
     if (save_to.length() == 0)
     {
-      std::string save_to_alt = boost::replace_all_copy(util::sFiles::GetFinrocFileToSaveTo(xml_file.Get()), "/", "_");
+      std::string save_to_alt = boost::replace_all_copy(core::GetFinrocFileToSaveTo(xml_file.Get()), "/", "_");
       FINROC_LOG_PRINT(USER, "There does not seem to be any suitable location for: '", xml_file.Get(), "' . For now, using '", save_to_alt, "'.");
       save_to = save_to_alt;
     }
@@ -599,7 +599,7 @@ void tFinstructableGroup::SaveXml()
     {
       const char* msg = e.what();
       FINROC_LOG_PRINT(USER, "Saving failed: ", msg);
-      throw util::tException(msg);
+      throw std::runtime_error(msg);
     }
   }
   saving_thread = NULL;
@@ -610,7 +610,7 @@ std::vector<std::string> tFinstructableGroup::ScanForCommandLineArgs(const std::
   std::vector<std::string> result;
   try
   {
-    rrlib::xml::tDocument doc(util::sFiles::GetFinrocXMLDocument(finroc_file, false));
+    rrlib::xml::tDocument doc(core::GetFinrocXMLDocument(finroc_file, false));
     try
     {
       FINROC_LOG_PRINT_STATIC(DEBUG, "Scanning for command line options in ", finroc_file);

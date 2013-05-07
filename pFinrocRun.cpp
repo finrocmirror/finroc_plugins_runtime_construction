@@ -40,7 +40,7 @@
 // External includes (system with <>, local with "")
 //----------------------------------------------------------------------
 #include <chrono>
-#include "rrlib/finroc_core_utils/sFiles.h"
+#include "core/file_lookup.h"
 #include "core/tRuntimeEnvironment.h"
 
 //----------------------------------------------------------------------
@@ -153,11 +153,11 @@ void StartUp()
         finroc_file.file_name = arg;
 
         // Main name specified in .finroc file?
-        if (finroc::util::sFiles::FinrocFileExists(finroc_file.file_name))
+        if (FinrocFileExists(finroc_file.file_name))
         {
           try
           {
-            rrlib::xml::tDocument doc(finroc::util::sFiles::GetFinrocXMLDocument(finroc_file.file_name, false));
+            rrlib::xml::tDocument doc(GetFinrocXMLDocument(finroc_file.file_name, false));
             rrlib::xml::tNode& root = doc.RootNode();
             if (root.HasAttribute("defaultname"))
             {
