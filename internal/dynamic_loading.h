@@ -25,6 +25,8 @@
  *
  * \date    2012-12-02
  *
+ * \brief
+ *
  * Contains utility/convenience methods for dynamic loading -
  * finroc libraries in particular.
  *
