@@ -427,7 +427,7 @@ void tFinstructableGroup::SaveXml()
     std::string save_to = core::GetFinrocFileToSaveTo(xml_file.Get());
     if (save_to.length() == 0)
     {
-      std::string save_to_alt = boost::replace_all_copy(core::GetFinrocFileToSaveTo(xml_file.Get()), "/", "_");
+      std::string save_to_alt = core::GetFinrocFileToSaveTo(boost::replace_all_copy(xml_file.Get(), "/", "_"));
       FINROC_LOG_PRINT(USER, "There does not seem to be any suitable location for: '", xml_file.Get(), "' . For now, using '", save_to_alt, "'.");
       save_to = save_to_alt;
     }
