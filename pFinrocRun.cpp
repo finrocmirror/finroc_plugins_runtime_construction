@@ -19,13 +19,11 @@
 // Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 //
 //----------------------------------------------------------------------
-/*!\file    tools/finroc_run/pFinrocRun.cpp
+/*!\file    plugins/runtime_construction/pFinrocRun.cpp
  *
  * \author  Max Reichardt
  *
  * \date    2013-04-28
- *
- * \brief Contains mFinrocRun
  *
  * \b pFinrocRun
  *
