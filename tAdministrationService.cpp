@@ -77,8 +77,9 @@ static rpc_ports::tRPCInterfaceType<tAdministrationService> cTYPE("Administratio
     &tAdministrationService::CreateModule, &tAdministrationService::DeleteElement, &tAdministrationService::Disconnect,
     &tAdministrationService::DisconnectAll, &tAdministrationService::GetAnnotation, &tAdministrationService::GetCreateModuleActions,
     &tAdministrationService::GetModuleLibraries, &tAdministrationService::GetParameterInfo, &tAdministrationService::IsExecuting,
-    &tAdministrationService::LoadModuleLibrary, &tAdministrationService::PauseExecution, &tAdministrationService::SaveFinstructableGroup,
-    &tAdministrationService::SetAnnotation, &tAdministrationService::SetPortValue, &tAdministrationService::StartExecution);
+    &tAdministrationService::LoadModuleLibrary, &tAdministrationService::PauseExecution, &tAdministrationService::SaveAllFinstructableFiles,
+    &tAdministrationService::SaveFinstructableGroup, &tAdministrationService::SetAnnotation, &tAdministrationService::SetPortValue,
+    &tAdministrationService::StartExecution);
 
 static tAdministrationService administration_service;
 
@@ -443,6 +444,28 @@ void tAdministrationService::PauseExecution(int element_handle)
       (*it)->Pause();
     }
   }
+}
+
+void tAdministrationService::SaveAllFinstructableFiles()
+{
+  FINROC_LOG_PRINT(USER, "Saving all finstructable files in this process:");
+  core::tRuntimeEnvironment& runtime_environment = core::tRuntimeEnvironment::GetInstance();
+  for (auto it = runtime_environment.SubElementsBegin(); it != runtime_environment.SubElementsEnd(); ++it)
+  {
+    if (it->GetFlag(core::tFrameworkElement::tFlag::FINSTRUCTABLE_GROUP))
+    {
+      try
+      {
+        (static_cast<tFinstructableGroup&>(*it)).SaveXml();
+      }
+      catch (const std::exception& e)
+      {
+        FINROC_LOG_PRINT(ERROR, "Error saving finstructable group ", it->GetQualifiedLink());
+        FINROC_LOG_PRINT(ERROR, e);
+      }
+    }
+  }
+  FINROC_LOG_PRINT(USER, "Done.");
 }
 
 void tAdministrationService::SaveFinstructableGroup(int group_handle)

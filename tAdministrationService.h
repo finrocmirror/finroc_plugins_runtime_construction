@@ -191,6 +191,11 @@ public:
   void PauseExecution(int element_handle);
 
   /*!
+   * Saves all finstructable files in this runtime environment
+   */
+  void SaveAllFinstructableFiles();
+
+  /*!
    * Save contents finstructable group to xml file
    *
    * \param group_handle Handle of group to save
