@@ -32,7 +32,6 @@
  *
  */
 //----------------------------------------------------------------------
-#include "plugins/structure/default_main_wrapper.h"
 
 //----------------------------------------------------------------------
 // External includes (system with <>, local with "")
@@ -41,9 +40,14 @@
 #include "core/file_lookup.h"
 #include "core/tRuntimeEnvironment.h"
 
+#include "rrlib/getopt/parser.h"
+#include "rrlib/logging/configuration.h"
+
 //----------------------------------------------------------------------
 // Internal includes with ""
 //----------------------------------------------------------------------
+#include "plugins/structure/main_utilities.h"
+#include "plugins/structure/tThreadContainer.h"
 
 //----------------------------------------------------------------------
 // Debugging
@@ -63,8 +67,11 @@ using namespace finroc::structure;
 //----------------------------------------------------------------------
 // Const values
 //----------------------------------------------------------------------
-const char * const cPROGRAM_VERSION = "1.0";
-const char * const cPROGRAM_DESCRIPTION = "This program instantiates and executes modules specified in a .finroc file.";
+const std::string cFINROC_FILE_EXTENSION = ".finroc";
+const std::string cPROGRAM_DESCRIPTION = "This program instantiates and executes modules specified in one or more " + cFINROC_FILE_EXTENSION + " files.";
+const std::string cCOMMAND_LINE_ARGUMENTS = "<" + cFINROC_FILE_EXTENSION + "-files>";
+const std::string cADDITIONAL_HELP_TEXT = "To set a group name use <name>:<" + cFINROC_FILE_EXTENSION + "-file>. Otherwise the filename is used as group name";
+bool make_all_port_links_unique = true;
 
 //----------------------------------------------------------------------
 // Implementation
@@ -81,23 +88,66 @@ struct tFinrocFile
 
   /*! Thread container that was created for .finroc file */
   tThreadContainer* thread_container;
+
+  tFinrocFile(const std::string &argument)
+  {
+    if (argument.find(':') != std::string::npos)
+    {
+      this->file_name = argument.substr(argument.rfind(':') + 1);
+      this->main_name = argument.substr(0, argument.rfind(':'));
+    }
+    else
+    {
+      this->file_name = argument;
+
+      // Main name specified in .finroc file?
+      if (FinrocFileExists(this->file_name))
+      {
+        try
+        {
+          rrlib::xml::tDocument doc(GetFinrocXMLDocument(this->file_name, false));
+          rrlib::xml::tNode& root = doc.RootNode();
+          if (root.HasAttribute("defaultname"))
+          {
+            this->main_name = root.GetStringAttribute("defaultname");
+          }
+        }
+        catch (std::exception& e)
+        {
+          FINROC_LOG_PRINT(ERROR, "Error scanning file: ", this->file_name);
+        }
+      }
+
+      // If not, use name of .finroc file
+      if (this->main_name.length() == 0)
+      {
+        this->main_name = this->file_name;
+        if (argument.find("/") != std::string::npos)
+        {
+          this->main_name = argument.substr(argument.rfind("/") + 1); // cut off path
+        }
+        this->main_name = this->main_name.substr(0, this->main_name.length() - 7); // cut off .finroc
+      }
+    }
+  }
 };
 
 int cycle_time = 40;
 std::vector<std::string> finroc_file_extra_args;
-std::list<tFinrocFile> finroc_files;
+std::vector<tFinrocFile> finroc_files;
 
-
+//----------------------------------------------------------------------
+// CycleTimeHandler
+//----------------------------------------------------------------------
 bool CycleTimeHandler(const rrlib::getopt::tNameToOptionMap &name_to_option_map)
 {
-  rrlib::getopt::tOption port_option(name_to_option_map.at("cycle-time"));
-  if (port_option->IsActive())
+  rrlib::getopt::tOption time_option(name_to_option_map.at("cycle-time"));
+  if (time_option->IsActive())
   {
-    const char* time_string = boost::any_cast<const char *>(port_option->GetValue());
-    int time = atoi(time_string);
+    int time = atoi(rrlib::getopt::EvaluateValue(time_option).c_str());
     if (time < 1 || time > 10000)
     {
-      FINROC_LOG_PRINT(ERROR, "Invalid cycle time '", time_string, "'. Using default: ", cycle_time, " ms");
+      FINROC_LOG_PRINT(ERROR, "Invalid cycle time '", time, "'. Using default: ", cycle_time, " ms");
     }
     else
     {
@@ -109,6 +159,9 @@ bool CycleTimeHandler(const rrlib::getopt::tNameToOptionMap &name_to_option_map)
   return true;
 }
 
+//----------------------------------------------------------------------
+// FinrocFileArgHandler
+//----------------------------------------------------------------------
 bool FinrocFileArgHandler(const rrlib::getopt::tNameToOptionMap &name_to_option_map)
 {
   for (size_t i = 0; i < finroc_file_extra_args.size(); i++)
@@ -116,7 +169,7 @@ bool FinrocFileArgHandler(const rrlib::getopt::tNameToOptionMap &name_to_option_
     rrlib::getopt::tOption extra_option(name_to_option_map.at(finroc_file_extra_args[i].c_str()));
     if (extra_option->IsActive())
     {
-      finroc::core::tRuntimeEnvironment::GetInstance().AddCommandLineArgument(finroc_file_extra_args[i], boost::any_cast<const char *>(extra_option->GetValue()));
+      finroc::core::tRuntimeEnvironment::GetInstance().AddCommandLineArgument(finroc_file_extra_args[i], rrlib::getopt::EvaluateValue(extra_option));
     }
   }
 
@@ -124,110 +177,73 @@ bool FinrocFileArgHandler(const rrlib::getopt::tNameToOptionMap &name_to_option_
 }
 
 //----------------------------------------------------------------------
-// StartUp
+// main
 //----------------------------------------------------------------------
-void StartUp()
+int main(int argc, char **argv)
 {
+  if (!finroc::structure::InstallSignalHandler())
+  {
+    FINROC_LOG_PRINT(ERROR, "Error installing signal handler. Exiting...");
+    return EXIT_FAILURE;
+  }
+
+  rrlib::logging::default_log_description = basename(argv[0]);
+  rrlib::logging::SetLogFilenamePrefix(basename(argv[0]));
+
+  finroc::structure::RegisterCommonOptions();
   rrlib::getopt::AddValue("cycle-time", 't', "Cycle time of main thread in ms (default is 40)", &CycleTimeHandler);
 
-  // Slightly ugly command line parsing... we start at the back and look how many .finroc files the user specified
-  bool scanning_for_finroc_files = true;
-  bool unique_links = true;
-  for (int i = finroc_argc_copy - 1; i > 0; i--)
+  for (int i = 1; i < argc; ++i)
   {
-    std::string arg(finroc_argv_copy[i]);
-    if (scanning_for_finroc_files && arg.length() > 0 && boost::ends_with(arg, ".finroc"))
+    std::string argument(argv[i]);
+    if (argument.length() > cFINROC_FILE_EXTENSION.length() && argument.find(cFINROC_FILE_EXTENSION) != std::string::npos)
     {
-
-      // Determine name of finroc file - and name of group to create in runtime
-      struct tFinrocFile finroc_file;
-      if (arg.find(':') != std::string::npos)
-      {
-        finroc_file.file_name = arg.substr(arg.rfind(':') + 1);
-        finroc_file.main_name = arg.substr(0, arg.rfind(':'));
-      }
-      else
-      {
-        finroc_file.file_name = arg;
-
-        // Main name specified in .finroc file?
-        if (FinrocFileExists(finroc_file.file_name))
-        {
-          try
-          {
-            rrlib::xml::tDocument doc(GetFinrocXMLDocument(finroc_file.file_name, false));
-            rrlib::xml::tNode& root = doc.RootNode();
-            if (root.HasAttribute("defaultname"))
-            {
-              finroc_file.main_name = root.GetStringAttribute("defaultname");
-            }
-          }
-          catch (std::exception& e)
-          {
-            FINROC_LOG_PRINT(ERROR, "Error scanning file: ", finroc_file.file_name);
-          }
-        }
-
-        // If not, use name of .finroc file
-        if (finroc_file.main_name.length() == 0)
-        {
-          finroc_file.main_name = finroc_file.file_name;
-          if (arg.find("/") != std::string::npos)
-          {
-            finroc_file.main_name = arg.substr(arg.rfind("/") + 1); // cut off path
-          }
-          finroc_file.main_name = finroc_file.main_name.substr(0, finroc_file.main_name.length() - 7); // cut off .finroc
-        }
-      }
-      finroc_files.push_front(finroc_file);
+      finroc_files.push_back(tFinrocFile(argument));
 
       // Scan for additional command line arguments (possibly specified in .finroc file)
-      finroc_file_extra_args = finroc::runtime_construction::tFinstructableGroup::ScanForCommandLineArgs(finroc_file.file_name);
+      finroc_file_extra_args = finroc::runtime_construction::tFinstructableGroup::ScanForCommandLineArgs(finroc_files.back().file_name);
       for (size_t i = 0; i < finroc_file_extra_args.size(); i++)
       {
         rrlib::getopt::AddValue(finroc_file_extra_args[i].c_str(), 0, "", &FinrocFileArgHandler);
       }
-
-      // Set peer name to name of first .finroc file
-      finroc_peer_name = finroc_file.main_name;
     }
-    else
+    if (argument == "--port-links-are-not-unique")
     {
-      scanning_for_finroc_files = false;
-      if (arg.compare("port-links-are-not-unique") == 0)
-      {
-        unique_links = false;
-      }
-
-      break;
+      make_all_port_links_unique = false;
+      FINROC_LOG_PRINT(DEBUG, "Port links will be unique");
     }
-  }
-
-  // No file specified?
-  if (finroc_files.size() == 0)
-  {
-    FINROC_LOG_PRINT_STATIC(USER, "No finstructable groups specified.");
-    FINROC_LOG_PRINT_STATIC(USER, "Usage:  finroc_run [options] <.finroc-file 1> <.finroc-file2> ...");
-    FINROC_LOG_PRINT_STATIC(USER, "To set group name use <name>:<.finroc-file>. Otherwise .finroc-file name is used as group name.");
-    exit(-1);
   }
 
   // Create thread containers
   for (auto it = finroc_files.begin(); it != finroc_files.end(); ++it)
   {
     it->thread_container = new tThreadContainer(&tRuntimeEnvironment::GetInstance(), it->main_name, it->file_name, false,
-        unique_links ? tFrameworkElementFlags(tFrameworkElementFlag::GLOBALLY_UNIQUE_LINK) : tFrameworkElementFlags());
+        make_all_port_links_unique ? tFrameworkElementFlags(tFrameworkElementFlag::GLOBALLY_UNIQUE_LINK) : tFrameworkElementFlags());
     it->thread_container->SetMainName(it->main_name);
   }
-}
 
-//----------------------------------------------------------------------
-// InitMainGroup
-//----------------------------------------------------------------------
-void InitMainGroup(tThreadContainer *main_thread, std::vector<char*> remaining_args)
-{
+  std::vector<std::string> remaining_arguments = rrlib::getopt::ProcessCommandLine(argc, argv, cPROGRAM_DESCRIPTION, cCOMMAND_LINE_ARGUMENTS, cADDITIONAL_HELP_TEXT);
+
+  if (finroc_files.size() != remaining_arguments.size())
+  {
+    FINROC_LOG_PRINT_STATIC(WARNING, "Something unintended happened while parsing the command line arguments of this program.");
+    FINROC_LOG_PRINT_STATIC(WARNING, "Is there an option that takes a ", cFINROC_FILE_EXTENSION, "-file as value?");
+    FINROC_LOG_PRINT_STATIC(WARNING, "In that case the ", cFINROC_FILE_EXTENSION, "-file was accidently instantiated and will be started.");
+  }
+
+  if (finroc_files.empty())
+  {
+    FINROC_LOG_PRINT(ERROR, "No ", cFINROC_FILE_EXTENSION, "-file specified! See ", basename(argv[0]), " --help for more information.");
+    return EXIT_FAILURE;
+  }
+
   for (auto it = finroc_files.begin(); it != finroc_files.end(); ++it)
   {
     it->thread_container->SetCycleTime(cycle_time);
   }
+
+  finroc::structure::InstallCrashHandler();
+  finroc::structure::ConnectTCPPeer(finroc_files[0].main_name);
+
+  return finroc::structure::InitializeAndRunMainLoop(basename(argv[0]));
 }
