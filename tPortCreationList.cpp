@@ -284,7 +284,7 @@ const rrlib::xml::tNode& operator >> (const rrlib::xml::tNode& node, tPortCreati
   {
     core::tAbstractPort* ap = i < ports.size() ? ports[i] : NULL;
     std::string port_name = port->Name();
-    assert(boost::equals(port_name, "port"));
+    assert(port_name.compare("port") == 0);
     bool b = false;
     if (list.show_output_port_selection)
     {

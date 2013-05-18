@@ -250,7 +250,7 @@ tCreateFrameworkElementAction* LoadModuleType(const std::string& group, const st
   for (size_t i = 0u; i < modules.size(); i++)
   {
     tCreateFrameworkElementAction* cma = modules[i];
-    if (boost::equals(cma->GetModuleGroup(), group) && boost::equals(cma->GetName(), name))
+    if (cma->GetModuleGroup().compare(group) == 0 && cma->GetName().compare(name) == 0)
     {
       return cma;
     }

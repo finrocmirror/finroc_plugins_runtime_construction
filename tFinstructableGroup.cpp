@@ -38,6 +38,7 @@
 #include "core/tRuntimeEnvironment.h"
 #include "core/internal/tLinkEdge.h"
 #include "plugins/parameters/internal/tParameterInfo.h"
+#include <boost/algorithm/string.hpp>
 
 //----------------------------------------------------------------------
 // Internal includes with ""

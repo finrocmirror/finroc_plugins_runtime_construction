@@ -69,7 +69,7 @@ namespace runtime_construction
  *
  * When such actions are instantiated, they are automatically added to list of constructible elements.
  */
-class tCreateFrameworkElementAction : boost::noncopyable
+class tCreateFrameworkElementAction : private rrlib::util::tNoncopyable
 {
 
 //----------------------------------------------------------------------

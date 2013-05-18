@@ -40,6 +40,7 @@
 // External includes (system with <>, local with "")
 //----------------------------------------------------------------------
 #include <boost/lexical_cast.hpp>
+#include <boost/algorithm/string.hpp>
 
 //----------------------------------------------------------------------
 // Internal includes with ""

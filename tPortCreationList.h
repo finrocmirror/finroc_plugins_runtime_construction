@@ -69,7 +69,7 @@ namespace runtime_construction
  * Is only meant to be used in StaticParameters.
  * For this reason, it is not real-time capable and a little more memory-efficient.
  */
-class tPortCreationList : public rrlib::rtti::tIsListType<false, false>, boost::noncopyable
+class tPortCreationList : public rrlib::rtti::tIsListType<false, false>, public rrlib::util::tNoncopyable
 {
   typedef core::tFrameworkElement::tFlag tFlag;
   typedef core::tFrameworkElement::tFlags tFlags;
