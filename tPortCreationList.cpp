@@ -80,13 +80,13 @@ tPortCreationList::tPortCreationList() :
 
 void tPortCreationList::Add(const std::string& name, rrlib::rtti::tType dt, bool output)
 {
-  rrlib::thread::tLock lock(*io_vector);
+  rrlib::thread::tLock lock(io_vector->GetStructureMutex());
   CheckPort(NULL, *io_vector, flags, name, dt, output, NULL);
 }
 
 void tPortCreationList::ApplyChanges(core::tFrameworkElement& io_vector_, tFlags flags_)
 {
-  rrlib::thread::tLock lock(io_vector_);
+  rrlib::thread::tLock lock(io_vector->GetStructureMutex());
   std::vector<core::tAbstractPort*> ports1;
   GetPorts(*this->io_vector, ports1);
   std::vector<core::tAbstractPort*> ports2;

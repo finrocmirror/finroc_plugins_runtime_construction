@@ -275,7 +275,7 @@ bool tFinstructableGroup::IsResponsibleForConfigFileConnections(tFrameworkElemen
 void tFinstructableGroup::LoadXml(const std::string& xml_file_)
 {
   {
-    tLock lock2(GetStructureMutex());
+    rrlib::thread::tLock lock2(GetStructureMutex());
     try
     {
       FINROC_LOG_PRINT(DEBUG, "Loading XML: ", xml_file_);
@@ -422,7 +422,7 @@ std::string tFinstructableGroup::QualifyLink(const std::string& link)
 void tFinstructableGroup::SaveXml()
 {
   {
-    tLock lock2(GetStructureMutex());
+    rrlib::thread::tLock lock2(GetStructureMutex());
     saving_thread = &rrlib::thread::tThread::CurrentThread();
     dependencies_tmp.clear();
     std::string save_to = core::GetFinrocFileToSaveTo(xml_file.Get());
@@ -682,7 +682,7 @@ void tFinstructableGroup::SerializeChildren(rrlib::xml::tNode& node, tFrameworkE
 
 void tFinstructableGroup::SetFinstructed(tFrameworkElement& fe, tCreateFrameworkElementAction* create_action, tConstructorParameters* params)
 {
-  assert(!fe.GetFlag(tFlag::FINSTRUCTED));
+  assert(!fe.GetFlag(tFlag::FINSTRUCTED) && (!fe.IsReady()));
   parameters::internal::tStaticParameterList& list = parameters::internal::tStaticParameterList::GetOrCreate(fe);
   const std::vector<tCreateFrameworkElementAction*>& v = tCreateFrameworkElementAction::GetConstructibleElements();
   list.SetCreateAction(static_cast<int>(std::find(v.begin(), v.end(), create_action) - v.begin()));
