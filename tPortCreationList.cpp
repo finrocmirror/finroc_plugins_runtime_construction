@@ -59,6 +59,7 @@ namespace runtime_construction
 //----------------------------------------------------------------------
 // Forward declarations / typedefs / enums
 //----------------------------------------------------------------------
+typedef core::tFrameworkElement::tFlag tFlag;
 
 //----------------------------------------------------------------------
 // Const values
@@ -68,14 +69,23 @@ namespace runtime_construction
 // Implementation
 //----------------------------------------------------------------------
 
-static const core::tFrameworkElement::tFlags cRELEVANT_FLAGS = core::tFrameworkElement::tFlag::SHARED | core::tFrameworkElement::tFlag::VOLATILE;
+static const core::tFrameworkElement::tFlags cRELEVANT_FLAGS = tFlag::SHARED | tFlag::VOLATILE;
 static rrlib::rtti::tDataType<tPortCreationList> cTYPE;
 
 tPortCreationList::tPortCreationList() :
   show_output_port_selection(false),
   list(),
   io_vector(NULL),
-  flags(tFlags())
+  flags(tFlags()),
+  ports_flagged_finstructed()
+{}
+
+tPortCreationList::tPortCreationList(core::tFrameworkElement& port_group, tFlags flags, bool show_output_port_selection, bool ports_flagged_finstructed) :
+  show_output_port_selection(show_output_port_selection),
+  list(),
+  io_vector(&port_group),
+  flags(flags | (ports_flagged_finstructed ? tFlag::FINSTRUCTED : tFlag::PORT)),
+  ports_flagged_finstructed(ports_flagged_finstructed)
 {}
 
 void tPortCreationList::Add(const std::string& name, rrlib::rtti::tType dt, bool output)
@@ -88,9 +98,9 @@ void tPortCreationList::ApplyChanges(core::tFrameworkElement& io_vector_, tFlags
 {
   rrlib::thread::tLock lock(io_vector->GetStructureMutex());
   std::vector<core::tAbstractPort*> ports1;
-  GetPorts(*this->io_vector, ports1);
+  GetPorts(*this->io_vector, ports1, ports_flagged_finstructed);
   std::vector<core::tAbstractPort*> ports2;
-  GetPorts(io_vector_, ports2);
+  GetPorts(io_vector_, ports2, ports_flagged_finstructed);
 
   for (size_t i = 0u; i < ports1.size(); i++)
   {
@@ -104,18 +114,21 @@ void tPortCreationList::ApplyChanges(core::tFrameworkElement& io_vector_, tFlags
   }
 }
 
-void tPortCreationList::CheckPort(core::tAbstractPort* ap, core::tFrameworkElement& io_vector_, tFlags flags_, const std::string& name, rrlib::rtti::tType dt, bool output, core::tAbstractPort* prototype)
+void tPortCreationList::CheckPort(core::tAbstractPort* existing_port, core::tFrameworkElement& io_vector, tFlags flags,
+                                  const std::string& name, rrlib::rtti::tType type, bool output, core::tAbstractPort* prototype)
 {
-  if (ap != NULL && ap->NameEquals(name) && ap->GetDataType() == dt && ap->GetFlag(tFlag::SHARED) == flags_.Get(tFlag::SHARED) && ap->GetFlag(tFlag::VOLATILE) == flags_.Get(tFlag::VOLATILE))
+  if (existing_port && existing_port->NameEquals(name) && existing_port->GetDataType() == type &&
+      existing_port->GetFlag(tFlag::SHARED) == flags.Get(tFlag::SHARED) &&
+      existing_port->GetFlag(tFlag::VOLATILE) == flags.Get(tFlag::VOLATILE))
   {
-    if ((!show_output_port_selection) || (output == ap->IsOutputPort()))
+    if ((!show_output_port_selection) || (output == existing_port->IsOutputPort()))
     {
       return;
     }
   }
-  if (ap != NULL)
+  if (existing_port)
   {
-    ap->ManagedDelete();
+    existing_port->ManagedDelete();
   }
 
   // compute flags to use
@@ -124,13 +137,17 @@ void tPortCreationList::CheckPort(core::tAbstractPort* ap, core::tFrameworkEleme
   {
     tmp |= tFlag::OUTPUT_PORT;
   }
-  flags_ |= tmp;
-
-  FINROC_LOG_PRINT_TO(port_creation_list, DEBUG_VERBOSE_1, "Creating port ", name, " in IOVector ", io_vector_.GetQualifiedLink());
-  ap = core::tPortFactory::CreatePort(name, io_vector_, dt, flags_);
-  if (ap != NULL)
+  if (ports_flagged_finstructed)
   {
-    ap->Init();
+    tmp |= tFlag::FINSTRUCTED;
+  }
+  flags |= tmp;
+
+  FINROC_LOG_PRINT_TO(port_creation_list, DEBUG_VERBOSE_1, "Creating port ", name, " in IOVector ", io_vector.GetQualifiedLink());
+  core::tAbstractPort* created_port = core::tPortFactory::CreatePort(name, io_vector, type, flags);
+  if (created_port != NULL)
+  {
+    created_port->Init();
   }
 //  if (ap != NULL && listener != NULL)
 //  {
@@ -138,13 +155,30 @@ void tPortCreationList::CheckPort(core::tAbstractPort* ap, core::tFrameworkEleme
 //  }
 }
 
-void tPortCreationList::GetPorts(const core::tFrameworkElement& elem, std::vector<core::tAbstractPort*>& result)
+void tPortCreationList::GetPorts(const core::tFrameworkElement& elem, std::vector<core::tAbstractPort*>& result, bool finstructed_ports_only)
 {
   result.clear();
   for (auto it = elem.ChildPortsBegin(); it != elem.ChildPortsEnd(); ++it)
   {
-    result.push_back(&(*it));
+    if ((!finstructed_ports_only) || it->GetFlag(tFlag::FINSTRUCTED))
+    {
+      result.push_back(&(*it));
+    }
   }
+}
+
+int tPortCreationList::GetSize() const
+{
+  if (!io_vector)
+  {
+    return list.size();
+  }
+  int count = 0;
+  for (auto it = io_vector->ChildrenBegin(); it != io_vector->ChildrenEnd(); ++it)
+  {
+    count++;
+  }
+  return count;
 }
 
 void tPortCreationList::InitialSetup(core::tFrameworkElement& managed_io_vector, tFlags port_creation_flags, bool show_output_port_selection)
@@ -184,7 +218,7 @@ rrlib::serialization::tOutputStream& operator << (rrlib::serialization::tOutputS
   {
     rrlib::thread::tLock lock(list.io_vector->GetStructureMutex());
     std::vector<core::tAbstractPort*> ports;
-    list.GetPorts(*list.io_vector, ports);
+    list.GetPorts(*list.io_vector, ports, list.ports_flagged_finstructed);
     int size = ports.size();
     stream.WriteInt(size);
     for (int i = 0; i < size; i++)
@@ -217,25 +251,37 @@ rrlib::serialization::tInputStream& operator >> (rrlib::serialization::tInputStr
     rrlib::thread::tLock lock(list.io_vector->GetStructureMutex());
     list.show_output_port_selection = stream.ReadBoolean();
     size_t size = stream.ReadInt();
-    std::vector<core::tAbstractPort*> ports;
-    list.GetPorts(*list.io_vector, ports);
+    std::vector<core::tAbstractPort*> existing_ports;
+    list.GetPorts(*list.io_vector, existing_ports, list.ports_flagged_finstructed);
     for (size_t i = 0u; i < size; i++)
     {
-      core::tAbstractPort* ap = i < ports.size() ? ports[i] : NULL;
       std::string name = stream.ReadString();
-      std::string dt_name = stream.ReadString();
-      rrlib::rtti::tType dt = rrlib::rtti::tType::FindType(dt_name);
-      if (dt == NULL)
+      std::string type_name = stream.ReadString();
+      rrlib::rtti::tType type = rrlib::rtti::tType::FindType(type_name);
+      if (type == NULL)
       {
-        FINROC_LOG_PRINT(ERROR, "Error checking port from port creation deserialization: Type " + dt_name + " not available");
-        throw std::runtime_error("Error checking port from port creation list deserialization: Type " + dt_name + " not available");
+        FINROC_LOG_PRINT(ERROR, "Error checking port from port creation deserialization: Type " + type_name + " not available");
+        throw std::runtime_error("Error checking port from port creation list deserialization: Type " + type_name + " not available");
       }
       bool output = stream.ReadBoolean();
-      list.CheckPort(ap, *list.io_vector, list.flags, name, dt, output, NULL);
+
+      core::tAbstractPort* existing_port_with_this_name = NULL;
+      for (auto it = existing_ports.begin(); it != existing_ports.end(); ++it)
+      {
+        if ((*it)->GetName() == name)
+        {
+          existing_port_with_this_name = *it;
+          existing_ports.erase(it);
+          break;
+        }
+      }
+      list.CheckPort(existing_port_with_this_name, *list.io_vector, list.flags, name, type, output, NULL);
     }
-    for (size_t i = size; i < ports.size(); i++)
+
+    // delete any remaining ports
+    for (size_t i = 0; i < existing_ports.size(); i++)
     {
-      ports[i]->ManagedDelete();
+      existing_ports[i]->ManagedDelete();
     }
   }
   return stream;
@@ -251,7 +297,7 @@ rrlib::xml::tNode& operator << (rrlib::xml::tNode& node, const tPortCreationList
   rrlib::thread::tLock lock(list.io_vector->GetStructureMutex());
   node.SetAttribute("showOutputSelection", list.show_output_port_selection);
   std::vector<core::tAbstractPort*> ports;
-  list.GetPorts(*list.io_vector, ports);
+  list.GetPorts(*list.io_vector, ports, list.ports_flagged_finstructed);
   int size = ports.size();
   for (int i = 0; i < size; i++)
   {
@@ -278,7 +324,7 @@ const rrlib::xml::tNode& operator >> (const rrlib::xml::tNode& node, tPortCreati
   rrlib::thread::tLock lock(list.io_vector->GetStructureMutex());
   list.show_output_port_selection = node.GetBoolAttribute("showOutputSelection");
   std::vector<core::tAbstractPort*> ports;
-  list.GetPorts(*list.io_vector, ports);
+  list.GetPorts(*list.io_vector, ports, list.ports_flagged_finstructed);
   size_t i = 0u;
   for (rrlib::xml::tNode::const_iterator port = node.ChildrenBegin(); port != node.ChildrenEnd(); ++port, ++i)
   {

@@ -82,6 +82,14 @@ public:
   tPortCreationList();
 
   /*!
+   * \param port_group Port group that this list is used for editing for
+   * \param flags Flags for port creation
+   * \param show_output_port_selection Should output port selection be visible in finstruct? (the user can select whether port is input or output port)
+   * \param ports_flagged_finstructed Deal only with ports flagged finstructed?
+   */
+  tPortCreationList(core::tFrameworkElement& port_group, tFlags flags, bool show_output_port_selection, bool ports_flagged_finstructed = true);
+
+  /*!
    * Add entry to list
    *
    * \param name Port name
@@ -114,19 +122,7 @@ public:
   /*!
    * \return size of list
    */
-  inline int GetSize() const
-  {
-    if (!io_vector)
-    {
-      return list.size();
-    }
-    int count = 0;
-    for (auto it = io_vector->ChildrenBegin(); it != io_vector->ChildrenEnd(); ++it)
-    {
-      count++;
-    }
-    return count;
-  }
+  int GetSize() const;
 
   /*!
    * Initially set up list for local operation
@@ -167,7 +163,7 @@ private:
 
   };
 
-  /*! Should output port selection be visible in finstruct? */
+  /*! Should output port selection be visible in finstruct? (the user can select whether port is input or output port) */
   bool show_output_port_selection;
 
   /*! List backend (for remote Runtimes) */
@@ -179,27 +175,35 @@ private:
   /*! Flags for port creation */
   tFlags flags;
 
+  /*!
+   * Deal only with ports flagged finstructed? (for local Runtimes)
+   * Crated ports will be flagged finstructed. Only ports flagged finstructed will be deleted.
+   * (Used for editable interfaces in groups)
+   */
+  bool ports_flagged_finstructed;
 
   /*!
    * Check whether we need to make adjustments to port
    *
-   * \param ap Port to check
+   * \param existing_port Port to check
    * \param io_vector Parent
    * \param flags Creation flags
    * \param name New name
-   * \param dt new data type
+   * \param type new data type
    * \param output output port
    * \param prototype Port prototype (only interesting for listener)
    */
-  void CheckPort(core::tAbstractPort* ap, core::tFrameworkElement& io_vector, tFlags flags, const std::string& name, rrlib::rtti::tType dt, bool output, core::tAbstractPort* prototype);
+  void CheckPort(core::tAbstractPort* existing_port, core::tFrameworkElement& io_vector, tFlags flags, const std::string& name,
+                 rrlib::rtti::tType type, bool output, core::tAbstractPort* prototype);
 
   /*!
    * Returns all child ports of specified framework element
    *
    * \param elem Framework Element
    * \param result List containing result
+   * \param finstructed_ports_only Only retrieve finstructed ports?
    */
-  static void GetPorts(const core::tFrameworkElement& elem, std::vector<core::tAbstractPort*>& result);
+  static void GetPorts(const core::tFrameworkElement& elem, std::vector<core::tAbstractPort*>& result, bool finstructed_ports_only);
 };
 
 rrlib::serialization::tOutputStream& operator << (rrlib::serialization::tOutputStream& stream, const tPortCreationList& list);

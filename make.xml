@@ -15,6 +15,7 @@
       internal/dynamic_loading.cpp
       tAdministrationService.cpp
       tDataTypeReference.cpp
+      tEditableInterfaces.cpp
       tFinstructableGroup.cpp
       tGroup.cpp
       tGroupInterface.cpp
