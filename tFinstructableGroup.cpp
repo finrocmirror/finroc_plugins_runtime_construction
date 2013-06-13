@@ -75,7 +75,7 @@ namespace runtime_construction
 // Implementation
 //----------------------------------------------------------------------
 
-tStandardCreateModuleAction<tFinstructableGroup> tFinstructableGroup::cCREATE_ACTION("Finstructable Group");
+tStandardCreateModuleAction<tFinstructableGroup> cCREATE_ACTION_FOR_T_FINSTRUCTABLE_GROUP("Finstructable Group");
 
 /*! Thread currently saving finstructable group */
 static rrlib::thread::tThread* saving_thread = NULL;
@@ -165,7 +165,7 @@ core::tAbstractPort* tFinstructableGroup::GetChildPort(const std::string& link)
   {
     return GetRuntime().GetPort(link);
   }
-  ::finroc::core::tFrameworkElement* fe = GetChildElement(link, false);
+  core::tFrameworkElement* fe = GetChildElement(link, false);
   if (fe != NULL && fe->IsPort())
   {
     return static_cast<core::tAbstractPort*>(fe);

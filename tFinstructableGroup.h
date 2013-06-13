@@ -170,9 +170,6 @@ private:
   /*! Default name when group is main part */
   std::string main_name;
 
-  /*! CreateModuleAction */
-  static tStandardCreateModuleAction<tFinstructableGroup> cCREATE_ACTION;
-
   /*!
    * Helper method to collect .so files that need to be loaded before the contents of
    * this XML file can be instantiated.
