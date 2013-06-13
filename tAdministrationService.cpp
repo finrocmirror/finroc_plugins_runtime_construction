@@ -164,7 +164,7 @@ void tAdministrationService::Connect(int source_port_handle, int destination_por
 
 void tAdministrationService::CreateAdministrationPort()
 {
-  rpc_ports::tServerPort<tAdministrationService>(administration_service, cPORT_NAME, cTYPE, core::tFrameworkElement::tFlag::SHARED);
+  rpc_ports::tServerPort<tAdministrationService>(administration_service, cPORT_NAME, cTYPE);
 }
 
 std::string tAdministrationService::CreateModule(uint32_t create_action_index, const std::string& module_name, int parent_handle, const rrlib::serialization::tMemoryBuffer& serialized_creation_parameters)
