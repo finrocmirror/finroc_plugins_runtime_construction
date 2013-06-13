@@ -43,6 +43,7 @@
 //----------------------------------------------------------------------
 // Internal includes with ""
 //----------------------------------------------------------------------
+#include "plugins/runtime_construction/tEditableInterfaces.h"
 #include "plugins/runtime_construction/internal/dynamic_loading.h"
 
 //----------------------------------------------------------------------
@@ -325,6 +326,25 @@ void tFinstructableGroup::LoadXml(const std::string& xml_file_)
           parameters::internal::tStaticParameterList& spl = parameters::internal::tStaticParameterList::GetOrCreate(*this);
           spl.Add(*new parameters::internal::tStaticParameterImplementationBase(node->GetStringAttribute("name"), rrlib::rtti::tType(), false, true));
         }
+        else if (boost::equals(name, "interface"))
+        {
+          tEditableInterfaces* editable_interfaces = this->GetAnnotation<tEditableInterfaces>();
+          if (editable_interfaces)
+          {
+            try
+            {
+              editable_interfaces->LoadInterfacePorts(*node);
+            }
+            catch (const std::exception& e)
+            {
+              FINROC_LOG_PRINT(WARNING, "Loading interface ports failed. Reason: ", e);
+            }
+          }
+          else
+          {
+            FINROC_LOG_PRINT(WARNING, "Cannot load interface, because finstructable group does not have any editable interfaces.");
+          }
+        }
         else if (boost::equals(name, "element"))
         {
           Instantiate(*node, this);
@@ -457,6 +477,13 @@ void tFinstructableGroup::SaveXml()
             proxy.SetAttribute("name", sp.GetName());
           }
         }
+      }
+
+      // serialize any editable interfaces
+      tEditableInterfaces* editable_interfaces = GetAnnotation<tEditableInterfaces>();
+      if (editable_interfaces)
+      {
+        editable_interfaces->SaveAllNonEmptyInterfaces(root);
       }
 
       // serialize framework elements

@@ -114,6 +114,51 @@ public:
   tEditableInterfaces(const std::vector<tStaticInterfaceInfo>& static_interface_info, core::tPortGroup** interface_array,
                       std::bitset<cMAX_INTERFACE_COUNT> shared_interfaces);
 
+  /*!
+   * Creates interface according to this static interface info.
+   * Places interface in interface array provided in constructor
+   *
+   * \param parent Parent framework element
+   * \param index Index of interface to create
+   * \param initialize Initialize created array?
+   * \return Returns Reference to created interface
+   */
+  core::tPortGroup& CreateInterface(core::tFrameworkElement* parent, size_t index, bool initialize) const;
+
+  /*!
+   * Loads and instantiates ports for one interface from information in xml node.
+   * Primary use case is loading finstructable groups.
+   *
+   * \param node XML node to load ports from
+   *
+   * \throw Throws different kinds of std::exceptions if loading fails
+   */
+  void LoadInterfacePorts(const rrlib::xml::tNode& node);
+
+  /*!
+   * Saves port information for all interfaces containing ports to the specified parent node.
+   * Primary use case is saving finstructable groups.
+   * For each non-empty interface a child node will be created:
+   *
+   * <interface name="name">
+   *   <port name="port 1 name" type="Number"/>
+   *   <port name="port 2 name" type="Number"/>
+   *   ...
+   * </interface>
+   *
+   * \param parent_node Node to add 'interface'-nodes to
+   */
+  void SaveAllNonEmptyInterfaces(rrlib::xml::tNode& parent_node);
+
+  /*!
+   * Saves port of an interface to xml node.
+   * Primary use case is saving finstructable groups (called by SaveAllNonEmptyInterfaces)
+   *
+   * \param node XML node to save port information to
+   * \param index Index of interface to save port information of
+   */
+  void SaveInterfacePorts(rrlib::xml::tNode& node, size_t index);
+
 //----------------------------------------------------------------------
 // Private fields and methods
 //----------------------------------------------------------------------

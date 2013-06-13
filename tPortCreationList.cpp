@@ -295,7 +295,10 @@ rrlib::xml::tNode& operator << (rrlib::xml::tNode& node, const tPortCreationList
   }
 
   rrlib::thread::tLock lock(list.io_vector->GetStructureMutex());
-  node.SetAttribute("showOutputSelection", list.show_output_port_selection);
+  if (!list.ports_flagged_finstructed)
+  {
+    node.SetAttribute("showOutputSelection", list.show_output_port_selection);
+  }
   std::vector<core::tAbstractPort*> ports;
   list.GetPorts(*list.io_vector, ports, list.ports_flagged_finstructed);
   int size = ports.size();
@@ -322,7 +325,10 @@ const rrlib::xml::tNode& operator >> (const rrlib::xml::tNode& node, tPortCreati
   }
 
   rrlib::thread::tLock lock(list.io_vector->GetStructureMutex());
-  list.show_output_port_selection = node.GetBoolAttribute("showOutputSelection");
+  if (!list.ports_flagged_finstructed)
+  {
+    list.show_output_port_selection = node.GetBoolAttribute("showOutputSelection");
+  }
   std::vector<core::tAbstractPort*> ports;
   list.GetPorts(*list.io_vector, ports, list.ports_flagged_finstructed);
   size_t i = 0u;
