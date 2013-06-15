@@ -45,7 +45,7 @@
 //----------------------------------------------------------------------
 #include "plugins/runtime_construction/tCreateFrameworkElementAction.h"
 #include "plugins/runtime_construction/tFinstructableGroup.h"
-#include "plugins/runtime_construction/internal/dynamic_loading.h"
+#include "plugins/runtime_construction/dynamic_loading.h"
 
 //----------------------------------------------------------------------
 // Debugging
@@ -339,7 +339,7 @@ rrlib::serialization::tMemoryBuffer tAdministrationService::GetModuleLibraries()
 {
   rrlib::serialization::tMemoryBuffer result_buffer;
   rrlib::serialization::tOutputStream output_stream(result_buffer);
-  std::vector<std::string> libs = internal::GetLoadableFinrocLibraries();
+  std::vector<std::string> libs = GetLoadableFinrocLibraries();
   for (size_t i = 0; i < libs.size(); i++)
   {
     output_stream.WriteString(libs[i]);
@@ -425,7 +425,7 @@ tAdministrationService::tExecutionStatus tAdministrationService::IsExecuting(int
 rrlib::serialization::tMemoryBuffer tAdministrationService::LoadModuleLibrary(const std::string& library_name)
 {
   FINROC_LOG_PRINT(USER, "Loading library ", library_name);
-  internal::DLOpen(library_name.c_str());
+  DLOpen(library_name.c_str());
   return GetCreateModuleActions();
 }
 

@@ -33,7 +33,7 @@
  * It provides functions to create, modify and delete Finroc elements such
  * as groups, modules, ports and port connections at application runtime.
  * One port needs to be created to be able to edit application
- * structure using finstruct (currently done in internal/dynamic_loading.cpp)
+ * structure using finstruct (currently done in dynamic_loading.cpp)
  *
  */
 //----------------------------------------------------------------------
@@ -70,7 +70,7 @@ namespace runtime_construction
  * It provides functions to create, modify and delete Finroc elements such
  * as groups, modules, ports and port connections at application runtime.
  * One port needs to be created to be able to edit application
- * structure using finstruct (currently done in internal/dynamic_loading.cpp)
+ * structure using finstruct (currently done in dynamic_loading.cpp)
  */
 class tAdministrationService : public rpc_ports::tRPCInterface
 {

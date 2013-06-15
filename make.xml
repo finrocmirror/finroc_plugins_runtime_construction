@@ -12,7 +12,7 @@
 
   <finrocplugin name="runtime_construction" libs="boost_filesystem">
     <sources>
-      internal/dynamic_loading.cpp
+      dynamic_loading.cpp
       tAdministrationService.cpp
       tDataTypeReference.cpp
       tEditableInterfaces.cpp

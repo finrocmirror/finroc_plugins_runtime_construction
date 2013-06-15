@@ -19,7 +19,7 @@
 // Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 //
 //----------------------------------------------------------------------
-/*!\file    plugins/runtime_construction/internal/dynamic_loading.cpp
+/*!\file    plugins/runtime_construction/dynamic_loading.cpp
  *
  * \author  Max Reichardt
  *
@@ -27,7 +27,7 @@
  *
  */
 //----------------------------------------------------------------------
-#include "plugins/runtime_construction/internal/dynamic_loading.h"
+#include "plugins/runtime_construction/dynamic_loading.h"
 
 //----------------------------------------------------------------------
 // External includes (system with <>, local with "")
@@ -60,8 +60,6 @@ namespace finroc
 {
 namespace runtime_construction
 {
-namespace internal
-{
 
 //----------------------------------------------------------------------
 // Forward declarations / typedefs / enums
@@ -74,6 +72,9 @@ namespace internal
 //----------------------------------------------------------------------
 // Implementation
 //----------------------------------------------------------------------
+
+namespace internal
+{
 
 class tRuntimeConstructionPlugin : public core::tPlugin
 {
@@ -90,6 +91,8 @@ public:
 };
 
 static tRuntimeConstructionPlugin plugin;
+
+}
 
 // closes dlopen-ed libraries
 class tDLCloser
@@ -109,13 +112,13 @@ public:
   }
 };
 
-static inline unsigned int GetLongevity(internal::tDLCloser*)
+static inline unsigned int GetLongevity(tDLCloser*)
 {
   return 0xFFFFFFFF; // unload code after everything else
 }
 
 
-typedef rrlib::design_patterns::tSingletonHolder<internal::tDLCloser, rrlib::design_patterns::singleton::Longevity> tDLCloserInstance;
+typedef rrlib::design_patterns::tSingletonHolder<tDLCloser, rrlib::design_patterns::singleton::Longevity> tDLCloserInstance;
 
 bool DLOpen(const char* open)
 {
@@ -284,6 +287,5 @@ tCreateFrameworkElementAction* LoadModuleType(const std::string& group, const st
 //----------------------------------------------------------------------
 // End of namespace declaration
 //----------------------------------------------------------------------
-}
 }
 }

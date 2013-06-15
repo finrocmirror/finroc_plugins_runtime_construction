@@ -44,7 +44,7 @@
 // Internal includes with ""
 //----------------------------------------------------------------------
 #include "plugins/runtime_construction/tEditableInterfaces.h"
-#include "plugins/runtime_construction/internal/dynamic_loading.h"
+#include "plugins/runtime_construction/dynamic_loading.h"
 
 //----------------------------------------------------------------------
 // Debugging
@@ -201,7 +201,7 @@ void tFinstructableGroup::Instantiate(const rrlib::xml::tNode& node, tFrameworkE
     std::string type = node.GetStringAttribute("type");
 
     // find action
-    tCreateFrameworkElementAction* action = internal::LoadModuleType(group, type);
+    tCreateFrameworkElementAction* action = LoadModuleType(group, type);
     if (action == NULL)
     {
       FINROC_LOG_PRINT(WARNING, "Failed to instantiate element. No module type ", group, "/", type, " available. Skipping...");
@@ -296,20 +296,20 @@ void tFinstructableGroup::LoadXml(const std::string& xml_file_)
         for (size_t i = 0; i < deps.size(); i++)
         {
           std::string dep = boost::trim_copy(deps[i]);
-          std::vector<std::string> loadable = internal::GetLoadableFinrocLibraries();
+          std::vector<std::string> loadable = GetLoadableFinrocLibraries();
           bool loaded = false;
           for (size_t i = 0; i < loadable.size(); i++)
           {
             if (boost::equals(loadable[i], dep))
             {
-              internal::DLOpen(dep.c_str());
+              DLOpen(dep.c_str());
               loaded = true;
               break;
             }
           }
           if (!loaded)
           {
-            std::set<std::string> loaded_libs = internal::GetLoadedFinrocLibraries();
+            std::set<std::string> loaded_libs = GetLoadedFinrocLibraries();
             if (loaded_libs.find(dep) == loaded_libs.end())
             {
               FINROC_LOG_PRINT(WARNING, "Dependency ", dep, " is not available.");
@@ -723,7 +723,7 @@ void tFinstructableGroup::SetFinstructed(tFrameworkElement& fe, tCreateFramework
 void tFinstructableGroup::StaticInit()
 {
   startup_type_count = rrlib::rtti::tType::GetTypeCount();
-  startup_loaded_finroc_libs = internal::GetLoadedFinrocLibraries();
+  startup_loaded_finroc_libs = GetLoadedFinrocLibraries();
 }
 
 //----------------------------------------------------------------------

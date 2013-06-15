@@ -19,7 +19,7 @@
 // Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 //
 //----------------------------------------------------------------------
-/*!\file    plugins/runtime_construction/internal/dynamic_loading.h
+/*!\file    plugins/runtime_construction/dynamic_loading.h
  *
  * \author  Max Reichardt
  *
@@ -32,8 +32,8 @@
  *
  */
 //----------------------------------------------------------------------
-#ifndef __plugins__runtime_construction__internal__dynamic_loading_h__
-#define __plugins__runtime_construction__internal__dynamic_loading_h__
+#ifndef __plugins__runtime_construction__dynamic_loading_h__
+#define __plugins__runtime_construction__dynamic_loading_h__
 
 //----------------------------------------------------------------------
 // External includes (system with <>, local with "")
@@ -51,8 +51,6 @@
 namespace finroc
 {
 namespace runtime_construction
-{
-namespace internal
 {
 
 //----------------------------------------------------------------------
@@ -105,7 +103,6 @@ tCreateFrameworkElementAction* LoadModuleType(const std::string& group, const st
 //----------------------------------------------------------------------
 // End of namespace declaration
 //----------------------------------------------------------------------
-}
 }
 }
 
