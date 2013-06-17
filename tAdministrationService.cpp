@@ -542,8 +542,7 @@ std::string tAdministrationService::SetPortValue(int port_handle, const rrlib::s
       {
         rrlib::serialization::tInputStream input_stream(serialized_new_value, rrlib::serialization::tTypeEncoding::NAMES);
         rrlib::serialization::tDataEncoding encoding;
-        rrlib::rtti::tType type;
-        input_stream >> encoding >> type;
+        input_stream >> encoding;
         data_ports::tGenericPort wrapped_port = data_ports::tGenericPort::Wrap(*port);
         data_ports::tPortDataPointer<rrlib::rtti::tGenericObject> buffer = wrapped_port.GetUnusedBuffer();
         buffer->Deserialize(input_stream, encoding);
