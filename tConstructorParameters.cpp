@@ -72,6 +72,11 @@ tConstructorParameters::tConstructorParameters() :
   parameters::internal::tStaticParameterList()
 {}
 
+std::string tConstructorParameters::GetLogDescription() const
+{
+  return "Constructor Parameters";
+}
+
 tConstructorParameters* tConstructorParameters::Instantiate() const
 {
   tConstructorParameters* cp = new tConstructorParameters();
