@@ -679,7 +679,7 @@ void tFinstructableGroup::SerializeChildren(rrlib::xml::tNode& node, tFrameworkE
     {
       // serialize framework element
       rrlib::xml::tNode& n = node.AddChildNode("element");
-      n.SetAttribute("name", child->GetCName());
+      n.SetAttribute("name", child->GetName());
       tCreateFrameworkElementAction* cma = tCreateFrameworkElementAction::GetConstructibleElements()[spl->GetCreateAction()];
       n.SetAttribute("group", cma->GetModuleGroup());
       if (boost::ends_with(cma->GetModuleGroup(), ".so"))

@@ -224,7 +224,7 @@ rrlib::serialization::tOutputStream& operator << (rrlib::serialization::tOutputS
     for (int i = 0; i < size; i++)
     {
       core::tAbstractPort* p = ports[i];
-      stream.WriteString(p->GetCName());
+      stream.WriteString(p->GetName());
       stream.WriteString(p->GetDataType().GetName());
       stream.WriteBoolean(p->IsOutputPort());
     }
@@ -306,7 +306,7 @@ rrlib::xml::tNode& operator << (rrlib::xml::tNode& node, const tPortCreationList
   {
     core::tAbstractPort* p = ports[i];
     rrlib::xml::tNode& child = node.AddChildNode("port");
-    child.SetAttribute("name", p->GetCName());
+    child.SetAttribute("name", p->GetName());
     child.SetAttribute("type", p->GetDataType().GetName());
     tFinstructableGroup::AddDependency(p->GetDataType());
     if (list.show_output_port_selection)
