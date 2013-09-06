@@ -116,7 +116,7 @@ private:
     template <typename ... ARGS>
     tParameter(tConstructorParameters* parent, const ARGS&... args)
     {
-      data_ports::tPortCreationInfo<T> creation_info(args...);
+      core::tPortWrapperBase::tConstructorArguments<data_ports::tPortCreationInfo<T>> creation_info(args...);
       tImplementation* implementation = tImplementation::CreateInstance(creation_info, true);
       this->SetImplementation(implementation);
       parent->Add(*implementation);
