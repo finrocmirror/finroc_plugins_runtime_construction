@@ -126,6 +126,7 @@ bool DLOpen(const char* open)
   if (handle)
   {
     tDLCloserInstance::Instance().loaded.push_back(handle);
+    core::internal::tPlugins::GetInstance().InitializeNewPlugins();
     return true;
   }
   FINROC_LOG_PRINTF(ERROR, "Error from dlopen: %s", dlerror());
