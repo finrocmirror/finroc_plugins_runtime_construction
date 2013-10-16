@@ -87,8 +87,11 @@ class tFinstructableGroup : public core::tFrameworkElement
 //----------------------------------------------------------------------
 public:
 
-  /*! Contains name of XML to use */
-  parameters::tStaticParameter<std::string> xml_file;
+  /*!
+   * Contains name of XML file to use
+   * Parameter only exists if no (fixed) XML file was provided via constructor
+   */
+  std::unique_ptr<parameters::tStaticParameter<std::string>> xml_file;
 
 
   tFinstructableGroup(tFrameworkElement* parent, const std::string& name, tFlags flags = tFlags());
@@ -97,9 +100,9 @@ public:
    * (if the provided file does not exist, it is created, when contents are saved - and a warning is displayed)
    * (if the provided file exists, its contents are loaded when group is initialized)
    *
-   * \param xml_file name of XML file (relative to finroc repository) that determines contents of this group
+   * \param xml_file Name of fixed XML file (relative to finroc repository) that determines contents of this group
    */
-  tFinstructableGroup(tFrameworkElement* parent, const std::string& name, const std::string& xml_file_, tFlags flags = tFlags());
+  tFinstructableGroup(tFrameworkElement* parent, const std::string& name, const std::string& xml_file, tFlags flags = tFlags());
 
   /*!
    * Helper method to collect data types that need to be loaded before the contents of
@@ -150,6 +153,7 @@ public:
 protected:
 
   virtual void OnStaticParameterChange(); // TODO mark override with gcc 4.7
+  virtual void PostChildInit(); // TODO mark override with gcc 4.7
 
 //----------------------------------------------------------------------
 // Private fields and methods
@@ -158,17 +162,11 @@ private:
 
   friend class internal::tRuntimeConstructionPlugin;
 
-  /*! Temporary variable for save operation: List to store connected ports in */
-  std::vector<core::tAbstractPort*> connect_tmp;
-
-  /*! Temporary variable for save operation: Qualified link to this group */
-  std::string link_tmp;
-
-  /*! Temporary variable for save operation: Save parameter config entries in callback (instead of edges)? */
-  bool save_parameter_config_entries;
-
   /*! Default name when group is main part */
   std::string main_name;
+
+  /*! This string contains xml file to load - if fixed string was specified in constructor */
+  const std::string fixed_xml_name;
 
   /*!
    * Helper method to collect .so files that need to be loaded before the contents of
@@ -186,16 +184,26 @@ private:
   core::tAbstractPort* GetChildPort(const std::string& link);
 
   /*!
-   * \param link (as from link edge)
+   * \param target_link (as from link edge)
+   * \param this_group_link Qualified link of this finstructable group
    * \return Relative link to this port (or absolute link if it is globally unique)
    */
-  std::string GetEdgeLink(const std::string& target_link);
+  std::string GetEdgeLink(const std::string& target_link, const std::string& this_group_link);
 
   /*!
    * \param ap Port
+   * \param this_group_link Qualified link of this finstructable group
    * \return Relative link to this port (or absolute link if it is globally unique)
    */
-  std::string GetEdgeLink(core::tAbstractPort& ap);
+  std::string GetEdgeLink(core::tAbstractPort& ap, const std::string& this_group_link);
+
+  /*!
+   * \return Returns raw xml name to use for loading and saving (either fixed string or from static parameter)
+   */
+  std::string GetXmlFileString()
+  {
+    return fixed_xml_name.length() > 0 ? fixed_xml_name : xml_file->Get();
+  }
 
   /*!
    * Intantiate element
@@ -231,9 +239,10 @@ private:
    * Make fully-qualified link from relative one
    *
    * \param link Relative Link
+   * \param this_group_link Qualified link of this finstructable group
    * \return Fully-qualified link
    */
-  std::string QualifyLink(const std::string& link);
+  std::string QualifyLink(const std::string& link, const std::string& this_group_link);
 
   /*!
    * Serialize children of specified framework element

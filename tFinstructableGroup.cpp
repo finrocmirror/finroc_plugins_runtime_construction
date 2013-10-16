@@ -91,32 +91,20 @@ static std::set<std::string> startup_loaded_finroc_libs;
 
 tFinstructableGroup::tFinstructableGroup(tFrameworkElement* parent, const std::string& name, tFlags flags) :
   tFrameworkElement(parent, name, flags | tFlag::FINSTRUCTABLE_GROUP, -1),
-  xml_file("XML file", this, ""),
-  connect_tmp(),
-  link_tmp(""),
-  save_parameter_config_entries(false),
-  main_name()
+  xml_file(new parameters::tStaticParameter<std::string>("XML file", this, "")),
+  main_name(),
+  fixed_xml_name()
 {
   core::tFrameworkElementTags::AddTag(*this, "group");
 }
 
-tFinstructableGroup::tFinstructableGroup(tFrameworkElement* parent, const std::string& name, const std::string& xml_file_, tFlags flags) :
+tFinstructableGroup::tFinstructableGroup(tFrameworkElement* parent, const std::string& name, const std::string& xml_file, tFlags flags) :
   tFrameworkElement(parent, name, flags | tFlag::FINSTRUCTABLE_GROUP, -1),
-  xml_file("XML file", this, ""),
-  connect_tmp(),
-  link_tmp(""),
-  save_parameter_config_entries(false),
-  main_name()
+  xml_file(xml_file.length() > 0 ? NULL : new parameters::tStaticParameter<std::string>("XML file", this, "")),
+  main_name(),
+  fixed_xml_name(xml_file)
 {
   core::tFrameworkElementTags::AddTag(*this, "group");
-  try
-  {
-    this->xml_file.Set(xml_file_);
-  }
-  catch (const std::exception& e)
-  {
-    FINROC_LOG_PRINT(ERROR, e);
-  }
 }
 
 void tFinstructableGroup::AddDependency(const std::string& dependency)
@@ -143,22 +131,6 @@ void tFinstructableGroup::AddDependency(const rrlib::rtti::tType& dt)
   }
 }
 
-void tFinstructableGroup::OnStaticParameterChange()
-{
-  if (xml_file.HasChanged() && xml_file.Get().length() > 0)
-  {
-    //if (this.childCount() == 0) { // TODO: original intension: changing xml files to mutliple existing ones in finstruct shouldn't load all of them
-    if (core::FinrocFileExists(xml_file.Get()))
-    {
-      LoadXml(xml_file.Get());
-    }
-    else
-    {
-      FINROC_LOG_PRINT(DEBUG, "Cannot find XML file ", xml_file.Get(), ". Creating empty group. You may edit and save this group using finstruct.");
-    }
-  }
-}
-
 core::tAbstractPort* tFinstructableGroup::GetChildPort(const std::string& link)
 {
   if (link[0] == '/')
@@ -173,23 +145,23 @@ core::tAbstractPort* tFinstructableGroup::GetChildPort(const std::string& link)
   return NULL;
 }
 
-std::string tFinstructableGroup::GetEdgeLink(const std::string& target_link)
+std::string tFinstructableGroup::GetEdgeLink(const std::string& target_link, const std::string& this_group_link)
 {
-  if (boost::starts_with(target_link, link_tmp))
+  if (boost::starts_with(target_link, this_group_link))
   {
-    return target_link.substr(link_tmp.length());
+    return target_link.substr(this_group_link.length());
   }
   return target_link;
 }
 
-std::string tFinstructableGroup::GetEdgeLink(core::tAbstractPort& ap)
+std::string tFinstructableGroup::GetEdgeLink(core::tAbstractPort& ap, const std::string& this_group_link)
 {
   core::tFrameworkElement* alt_root = ap.GetParentWithFlags(tFlag::ALTERNATIVE_LINK_ROOT);
   if (alt_root && alt_root->IsChildOf(*this))
   {
     return ap.GetQualifiedLink();
   }
-  return ap.GetQualifiedName().substr(link_tmp.length());
+  return ap.GetQualifiedName().substr(this_group_link.length());
 }
 
 void tFinstructableGroup::Instantiate(const rrlib::xml::tNode& node, tFrameworkElement* parent)
@@ -282,7 +254,7 @@ void tFinstructableGroup::LoadXml(const std::string& xml_file_)
       FINROC_LOG_PRINT(DEBUG, "Loading XML: ", xml_file_);
       rrlib::xml::tDocument doc(core::GetFinrocXMLDocument(xml_file_, false));
       rrlib::xml::tNode& root = doc.RootNode();
-      link_tmp = GetQualifiedName() + "/";
+      std::string link_tmp = GetQualifiedName() + "/";
       if (main_name.length() == 0 && root.HasAttribute("defaultname"))
       {
         main_name = root.GetStringAttribute("defaultname");
@@ -361,11 +333,11 @@ void tFinstructableGroup::LoadXml(const std::string& xml_file_)
           }
           else if (src_port == NULL || src_port->GetFlag(tFlag::VOLATILE))    // source volatile
           {
-            dest_port->ConnectTo(QualifyLink(src), core::tAbstractPort::tConnectDirection::AUTO, true);
+            dest_port->ConnectTo(QualifyLink(src, link_tmp), core::tAbstractPort::tConnectDirection::AUTO, true);
           }
           else if (dest_port == NULL || dest_port->GetFlag(tFlag::VOLATILE))    // destination volatile
           {
-            src_port->ConnectTo(QualifyLink(dest), core::tAbstractPort::tConnectDirection::AUTO, true);
+            src_port->ConnectTo(QualifyLink(dest, link_tmp), core::tAbstractPort::tConnectDirection::AUTO, true);
           }
           else
           {
@@ -430,13 +402,40 @@ void tFinstructableGroup::LogException(const std::exception& e)
   FINROC_LOG_PRINT(ERROR, msg);
 }
 
-std::string tFinstructableGroup::QualifyLink(const std::string& link)
+void tFinstructableGroup::OnStaticParameterChange()
+{
+  if (xml_file && xml_file->HasChanged() && xml_file->Get().length() > 0)
+  {
+    //if (this.childCount() == 0) { // TODO: original intension: changing xml files to mutliple existing ones in finstruct shouldn't load all of them
+    if (core::FinrocFileExists(xml_file->Get()))
+    {
+      LoadXml(xml_file->Get());
+    }
+    else
+    {
+      FINROC_LOG_PRINT(DEBUG, "Cannot find XML file ", xml_file->Get(), ". Creating empty group. You may edit and save this group using finstruct.");
+    }
+  }
+}
+
+void tFinstructableGroup::PostChildInit()
+{
+  if (fixed_xml_name.length() > 0)
+  {
+    if (core::FinrocFileExists(fixed_xml_name))
+    {
+      LoadXml(fixed_xml_name);
+    }
+  }
+}
+
+std::string tFinstructableGroup::QualifyLink(const std::string& link, const std::string& this_group_link)
 {
   if (link[0] == '/')
   {
     return link;
   }
-  return link_tmp + link;
+  return this_group_link + link;
 }
 
 void tFinstructableGroup::SaveXml()
@@ -445,11 +444,11 @@ void tFinstructableGroup::SaveXml()
     rrlib::thread::tLock lock2(GetStructureMutex());
     saving_thread = &rrlib::thread::tThread::CurrentThread();
     dependencies_tmp.clear();
-    std::string save_to = core::GetFinrocFileToSaveTo(xml_file.Get());
+    std::string save_to = core::GetFinrocFileToSaveTo(GetXmlFileString());
     if (save_to.length() == 0)
     {
-      std::string save_to_alt = core::GetFinrocFileToSaveTo(boost::replace_all_copy(xml_file.Get(), "/", "_"));
-      FINROC_LOG_PRINT(USER, "There does not seem to be any suitable location for: '", xml_file.Get(), "' . For now, using '", save_to_alt, "'.");
+      std::string save_to_alt = core::GetFinrocFileToSaveTo(boost::replace_all_copy(GetXmlFileString(), "/", "_"));
+      FINROC_LOG_PRINT(USER, "There does not seem to be any suitable location for: '", GetXmlFileString(), "' . For now, using '", save_to_alt, "'.");
       save_to = save_to_alt;
     }
     FINROC_LOG_PRINT(USER, "Saving XML: ", save_to);
@@ -490,7 +489,7 @@ void tFinstructableGroup::SaveXml()
       SerializeChildren(root, *this);
 
       // serialize edges
-      link_tmp = GetQualifiedName() + "/";
+      std::string link_tmp = GetQualifiedName() + "/";
       for (auto it = SubElementsBegin(); it != SubElementsEnd(); ++it)
       {
         if ((!it->IsPort()) || (!it->IsReady()))
@@ -536,8 +535,8 @@ void tFinstructableGroup::SaveXml()
 
           // save edge
           rrlib::xml::tNode& edge = root.AddChildNode("edge");
-          edge.SetAttribute("src", GetEdgeLink(ap));
-          edge.SetAttribute("dest", GetEdgeLink(ap2));
+          edge.SetAttribute("src", GetEdgeLink(ap, link_tmp));
+          edge.SetAttribute("dest", GetEdgeLink(ap2, link_tmp));
         }
 
         // serialize link edges
@@ -554,15 +553,15 @@ void tFinstructableGroup::SaveXml()
             {
               // save edge
               rrlib::xml::tNode& edge = root.AddChildNode("edge");
-              edge.SetAttribute("src", GetEdgeLink(le->GetSourceLink()));
-              edge.SetAttribute("dest", GetEdgeLink(ap));
+              edge.SetAttribute("src", GetEdgeLink(le->GetSourceLink(), link_tmp));
+              edge.SetAttribute("dest", GetEdgeLink(ap, link_tmp));
             }
             else
             {
               // save edge
               rrlib::xml::tNode& edge = root.AddChildNode("edge");
-              edge.SetAttribute("src", GetEdgeLink(ap));
-              edge.SetAttribute("dest", GetEdgeLink(le->GetTargetLink()));
+              edge.SetAttribute("src", GetEdgeLink(ap, link_tmp));
+              edge.SetAttribute("dest", GetEdgeLink(le->GetTargetLink(), link_tmp));
             }
           }
         }
@@ -589,7 +588,7 @@ void tFinstructableGroup::SaveXml()
             if (outermostGroup && info->GetCommandLineOption().length() > 0)
             {
               rrlib::xml::tNode& config = root.AddChildNode("parameter");
-              config.SetAttribute("link", GetEdgeLink(ap));
+              config.SetAttribute("link", GetEdgeLink(ap, link_tmp));
               config.SetAttribute("cmdline", info->GetCommandLineOption());
             }
 
@@ -597,7 +596,7 @@ void tFinstructableGroup::SaveXml()
           }
 
           rrlib::xml::tNode& config = root.AddChildNode("parameter");
-          config.SetAttribute("link", GetEdgeLink(ap));
+          config.SetAttribute("link", GetEdgeLink(ap, link_tmp));
           info->Serialize(config, true, outermostGroup);
         }
       }
