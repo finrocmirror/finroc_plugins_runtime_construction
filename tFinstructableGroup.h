@@ -200,10 +200,7 @@ private:
   /*!
    * \return Returns raw xml name to use for loading and saving (either fixed string or from static parameter)
    */
-  std::string GetXmlFileString()
-  {
-    return fixed_xml_name.length() > 0 ? fixed_xml_name : xml_file->Get();
-  }
+  std::string GetXmlFileString();
 
   /*!
    * Intantiate element

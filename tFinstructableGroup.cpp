@@ -89,6 +89,9 @@ static int startup_type_count = 0;
 /*! Loaded finroc libraries at startup */
 static std::set<std::string> startup_loaded_finroc_libs;
 
+/*! We do not want to have this prefix in XML file names, as this will not be found when a system installation is used */
+static const char* cUNWANTED_XML_FILE_PREFIX = "sources/cpp/";
+
 tFinstructableGroup::tFinstructableGroup(tFrameworkElement* parent, const std::string& name, tFlags flags) :
   tFrameworkElement(parent, name, flags | tFlag::FINSTRUCTABLE_GROUP, -1),
   xml_file(new parameters::tStaticParameter<std::string>("XML file", this, "")),
@@ -102,9 +105,13 @@ tFinstructableGroup::tFinstructableGroup(tFrameworkElement* parent, const std::s
   tFrameworkElement(parent, name, flags | tFlag::FINSTRUCTABLE_GROUP, -1),
   xml_file(xml_file.length() > 0 ? NULL : new parameters::tStaticParameter<std::string>("XML file", this, "")),
   main_name(),
-  fixed_xml_name(xml_file)
+  fixed_xml_name(xml_file.find(cUNWANTED_XML_FILE_PREFIX) == 0 ? xml_file.substr(strlen(cUNWANTED_XML_FILE_PREFIX)) : xml_file)
 {
   core::tFrameworkElementTags::AddTag(*this, "group");
+  if (fixed_xml_name.length() > 0)
+  {
+    core::tFrameworkElementTags::AddTag(*this, "finstructable structure file: " + fixed_xml_name);
+  }
 }
 
 void tFinstructableGroup::AddDependency(const std::string& dependency)
@@ -162,6 +169,16 @@ std::string tFinstructableGroup::GetEdgeLink(core::tAbstractPort& ap, const std:
     return ap.GetQualifiedLink();
   }
   return ap.GetQualifiedName().substr(this_group_link.length());
+}
+
+std::string tFinstructableGroup::GetXmlFileString()
+{
+  std::string s = fixed_xml_name.length() > 0 ? fixed_xml_name : xml_file->Get();
+  if (s.find(cUNWANTED_XML_FILE_PREFIX) != std::string::npos)
+  {
+    FINROC_LOG_PRINT(WARNING, "XML file name '", s, "' is deprecated, because it contains '", cUNWANTED_XML_FILE_PREFIX, "'. File will not be found when installed.");
+  }
+  return s;
 }
 
 void tFinstructableGroup::Instantiate(const rrlib::xml::tNode& node, tFrameworkElement* parent)
