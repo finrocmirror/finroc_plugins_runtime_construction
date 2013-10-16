@@ -106,7 +106,7 @@ public:
   void Connect(int source_port_handle, int destination_port_handle);
 
   /*!
-   * Instantiates port for adiministration
+   * Instantiates port for administration
    */
   static void CreateAdministrationPort();
 

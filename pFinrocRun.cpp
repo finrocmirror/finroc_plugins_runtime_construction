@@ -89,7 +89,8 @@ struct tFinrocFile
   /*! Thread container that was created for .finroc file */
   tThreadContainer* thread_container;
 
-  tFinrocFile(const std::string &argument)
+  tFinrocFile(const std::string &argument) :
+    thread_container(NULL)
   {
     if (argument.find(':') != std::string::npos)
     {
@@ -217,7 +218,7 @@ int main(int argc, char **argv)
   // Create thread containers
   for (auto it = finroc_files.begin(); it != finroc_files.end(); ++it)
   {
-    it->thread_container = new tThreadContainer(&tRuntimeEnvironment::GetInstance(), it->main_name, it->file_name, false,
+    it->thread_container = new tThreadContainer(&tRuntimeEnvironment::GetInstance(), it->main_name, it->file_name, true,
         make_all_port_links_unique ? tFrameworkElementFlags(tFrameworkElementFlag::GLOBALLY_UNIQUE_LINK) : tFrameworkElementFlags());
     it->thread_container->SetMainName(it->main_name);
   }
