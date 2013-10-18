@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8" standalone="no"?>
 <targets>
 
-  <finrocplugin name="runtime_construction_actions" libs="dl">
+  <finrocplugin name="actions" libs="dl">
     <sources>
       tConstructorCreateModuleAction.h
       tConstructorParameters.cpp
@@ -10,7 +10,7 @@
     </sources>
   </finrocplugin>
 
-  <finrocplugin name="runtime_construction" libs="boost_filesystem">
+  <finrocplugin libs="boost_filesystem">
     <sources>
       dynamic_loading.cpp
       tAdministrationService.cpp
