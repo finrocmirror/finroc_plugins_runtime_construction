@@ -260,11 +260,13 @@ tCreateFrameworkElementAction* LoadModuleType(const std::string& group, const st
     }
   }
 
+
   // hmm... we didn't find it - have we already tried to load .so?
+  std::string group_so_file = "lib" + group + ".so";
   bool already_loaded = false;
   for (size_t i = 0; i < loaded.size(); i++)
   {
-    if (loaded[i].compare(group) == 0)
+    if (loaded[i].compare(group_so_file) == 0)
     {
       already_loaded = true;
       break;
@@ -273,15 +275,15 @@ tCreateFrameworkElementAction* LoadModuleType(const std::string& group, const st
 
   if (!already_loaded)
   {
-    loaded.push_back(group);
+    loaded.push_back(group_so_file);
     std::set<std::string> loaded = GetLoadedFinrocLibraries();
-    if (loaded.find(group) == loaded.end() && DLOpen(group.c_str()))
+    if (loaded.find(group_so_file) == loaded.end() && DLOpen(group_so_file.c_str()))
     {
       return LoadModuleType(group, name);
     }
   }
 
-  FINROC_LOG_PRINT(ERROR, "Could not find/load module ", name, " in ", group);
+  FINROC_LOG_PRINT(ERROR, "Could not find/load module ", name, " in ", group_so_file);
   return NULL;
 }
 
