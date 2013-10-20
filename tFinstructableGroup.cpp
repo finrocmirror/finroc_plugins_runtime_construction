@@ -81,13 +81,13 @@ tStandardCreateModuleAction<tFinstructableGroup> cCREATE_ACTION_FOR_T_FINSTRUCTA
 static rrlib::thread::tThread* saving_thread = NULL;
 
 /*! Temporary variable for saving: .so files that should be loaded prior to instantiating this group */
-static std::set<std::string> dependencies_tmp;
+static std::set<tSharedLibrary> dependencies_tmp;
 
 /*! Number of types at startup */
 static int startup_type_count = 0;
 
 /*! Loaded finroc libraries at startup */
-static std::set<std::string> startup_loaded_finroc_libs;
+static std::set<tSharedLibrary> startup_loaded_finroc_libs;
 
 /*! We do not want to have this prefix in XML file names, as this will not be found when a system installation is used */
 static const char* cUNWANTED_XML_FILE_PREFIX = "sources/cpp/";
@@ -114,9 +114,9 @@ tFinstructableGroup::tFinstructableGroup(tFrameworkElement* parent, const std::s
   }
 }
 
-void tFinstructableGroup::AddDependency(const std::string& dependency)
+void tFinstructableGroup::AddDependency(const tSharedLibrary& dependency)
 {
-  if (&rrlib::thread::tThread::CurrentThread() == saving_thread && startup_loaded_finroc_libs.find(dependency.c_str()) == startup_loaded_finroc_libs.end())
+  if (&rrlib::thread::tThread::CurrentThread() == saving_thread && startup_loaded_finroc_libs.find(dependency) == startup_loaded_finroc_libs.end())
   {
     dependencies_tmp.insert(dependency);
   }
@@ -284,24 +284,24 @@ void tFinstructableGroup::LoadXml(const std::string& xml_file_)
         boost::split(deps, root.GetStringAttribute("dependencies"), boost::is_any_of(","));
         for (size_t i = 0; i < deps.size(); i++)
         {
-          std::string dep = boost::trim_copy(deps[i]);
-          std::vector<std::string> loadable = GetLoadableFinrocLibraries();
+          tSharedLibrary dep = boost::trim_copy(deps[i]);
+          std::vector<tSharedLibrary> loadable = GetLoadableFinrocLibraries();
           bool loaded = false;
           for (size_t i = 0; i < loadable.size(); i++)
           {
-            if (boost::equals(loadable[i], dep))
+            if (loadable[i] == dep)
             {
-              DLOpen(dep.c_str());
+              DLOpen(dep);
               loaded = true;
               break;
             }
           }
           if (!loaded)
           {
-            std::set<std::string> loaded_libs = GetLoadedFinrocLibraries();
+            std::set<tSharedLibrary> loaded_libs = GetLoadedFinrocLibraries();
             if (loaded_libs.find(dep) == loaded_libs.end())
             {
-              FINROC_LOG_PRINT(WARNING, "Dependency ", dep, " is not available.");
+              FINROC_LOG_PRINT(WARNING, "Dependency ", dep.ToString(true), " is not available.");
             }
           }
         }
@@ -628,7 +628,7 @@ void tFinstructableGroup::SaveXml()
           {
             s << ", ";
           }
-          s << (*it);
+          s << it->ToString();
         }
 
         root.SetAttribute("dependencies", s.str());
@@ -697,11 +697,11 @@ void tFinstructableGroup::SerializeChildren(rrlib::xml::tNode& node, tFrameworkE
       rrlib::xml::tNode& n = node.AddChildNode("element");
       n.SetAttribute("name", child->GetName());
       tCreateFrameworkElementAction* cma = tCreateFrameworkElementAction::GetConstructibleElements()[spl->GetCreateAction()];
-      n.SetAttribute("group", cma->GetModuleGroup());
-      if (boost::ends_with(cma->GetModuleGroup(), ".so"))
-      {
-        AddDependency(cma->GetModuleGroup());
-      }
+      n.SetAttribute("group", cma->GetModuleGroup().ToString());
+      //if (boost::ends_with(cma->GetModuleGroup(), ".so"))
+      //{
+      AddDependency(cma->GetModuleGroup());
+      //}
       n.SetAttribute("type", cma->GetName());
       if (cps != NULL)
       {

@@ -19,32 +19,33 @@
 // Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 //
 //----------------------------------------------------------------------
-/*!\file    plugins/runtime_construction/tStandardCreateModuleAction.h
+/*!\file    plugins/runtime_construction/tSharedLibrary.h
  *
  * \author  Max Reichardt
  *
- * \date    2012-12-02
+ * \date    2013-10-20
  *
- * \brief   Contains tStandardCreateModuleAction
+ * \brief   Contains tSharedLibrary
  *
- * \b tStandardCreateModuleAction
+ * \b tSharedLibrary
  *
- * Default create module action for finroc elements.
- * Modules need to have a constructor taking parent as first parameter and name as second.
+ * This class stores the name of shared library.
+ * It can provide the platform-dependent and platform-independent name.
+ * For serialization, the platform-independent name is used.
  *
  */
 //----------------------------------------------------------------------
-#ifndef __plugins__runtime_construction__tStandardCreateModuleAction_h__
-#define __plugins__runtime_construction__tStandardCreateModuleAction_h__
+#ifndef __plugins__runtime_construction__tSharedLibrary_h__
+#define __plugins__runtime_construction__tSharedLibrary_h__
 
 //----------------------------------------------------------------------
 // External includes (system with <>, local with "")
 //----------------------------------------------------------------------
+#include <string>
 
 //----------------------------------------------------------------------
 // Internal includes with ""
 //----------------------------------------------------------------------
-#include "plugins/runtime_construction/tCreateFrameworkElementAction.h"
 
 //----------------------------------------------------------------------
 // Namespace declaration
@@ -61,13 +62,13 @@ namespace runtime_construction
 //----------------------------------------------------------------------
 // Class declaration
 //----------------------------------------------------------------------
-//! Default create action implementation
+//! Shared Library Reference
 /*!
- * Default create module action for finroc elements.
- * Modules need to have a constructor taking parent as first parameter and name as second.
+ * This class stores the name of shared library.
+ * It can provide the platform-dependent and platform-independent name.
+ * For serialization, the platform-independent name is used.
  */
-template<typename T>
-class tStandardCreateModuleAction : public tCreateFrameworkElementAction
+class tSharedLibrary
 {
 
 //----------------------------------------------------------------------
@@ -75,57 +76,58 @@ class tStandardCreateModuleAction : public tCreateFrameworkElementAction
 //----------------------------------------------------------------------
 public:
 
-  /*!
-   * \param group Name of module group
-   * \param type_name Name of module type
+  /**
+   * \param name Name of shared library. Can be platform-dependent (lib*.so on Linux) or platform-independent.
    */
-  tStandardCreateModuleAction(const std::string& type_name_) :
-    group(),
-    type_name(type_name_)
+  tSharedLibrary(const std::string& name);
+
+  tSharedLibrary();
+
+  /**
+   * \return Path name if the name provided to the constructor included a path (otherwise empty string)
+   */
+  std::string GetPath()
   {
-    group = GetBinary((void*)CreateModuleImplementation);
+    return path;
   }
 
-  // TODO: mark virtual functions with override when we have gcc 4.7
-
-  virtual core::tFrameworkElement* CreateModule(core::tFrameworkElement* parent, const std::string& name, tConstructorParameters* params) const
-  {
-    return CreateModuleImplementation(parent, name);
-  }
-
-  virtual tSharedLibrary GetModuleGroup() const
-  {
-    return group;
-  }
-
-  virtual std::string GetName() const
-  {
-    return type_name;
-  }
-
-  virtual const tConstructorParameters* GetParameterTypes() const
-  {
-    return NULL;
-  }
+  /**
+   * \param platform_dependent Return platform-dependent name of shared library? (lib*.so on Linux)
+   * \return Returns file name of shared library (without path)
+   */
+  std::string ToString(bool platform_dependent = false) const;
 
 //----------------------------------------------------------------------
 // Private fields and methods
 //----------------------------------------------------------------------
 private:
 
-  /*! Name of module type */
-  tSharedLibrary group;
+  // more efficient, if operator is a friend
+  friend bool operator==(const tSharedLibrary& lhs, const tSharedLibrary& rhs);
+  friend bool operator<(const tSharedLibrary& lhs, const tSharedLibrary& rhs);
 
-  /*! Name of module type */
-  std::string type_name;
+  /** Platform-independent name */
+  std::string name;
 
-
-  /*! necessary to determine binary (?) */
-  static core::tFrameworkElement* CreateModuleImplementation(core::tFrameworkElement* parent, const std::string& name)
-  {
-    return new T(parent, name);
-  }
+  /** Path name if the name provided to the constructor included a path (otherwise empty string) */
+  std::string path;
 };
+
+
+inline bool operator==(const tSharedLibrary& lhs, const tSharedLibrary& rhs)
+{
+  return lhs.name == rhs.name;
+}
+
+inline bool operator!=(const tSharedLibrary& lhs, const tSharedLibrary& rhs)
+{
+  return !(lhs == rhs);
+}
+
+inline bool operator<(const tSharedLibrary& lhs, const tSharedLibrary& rhs)
+{
+  return lhs.name < rhs.name;
+}
 
 //----------------------------------------------------------------------
 // End of namespace declaration

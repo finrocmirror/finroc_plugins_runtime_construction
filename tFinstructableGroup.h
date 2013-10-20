@@ -175,7 +175,7 @@ private:
    *
    * \param dependency .so file that needs to be loaded
    */
-  static void AddDependency(const std::string& dependency);
+  static void AddDependency(const tSharedLibrary& dependency);
 
   /*!
    * \param cRelative port link

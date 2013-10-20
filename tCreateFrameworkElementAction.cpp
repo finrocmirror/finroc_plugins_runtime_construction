@@ -83,13 +83,12 @@ tCreateFrameworkElementAction::tCreateFrameworkElementAction()
   internal::GetConstructibleElements().push_back(this);
 }
 
-std::string tCreateFrameworkElementAction::GetBinary(void* addr)
+tSharedLibrary tCreateFrameworkElementAction::GetBinary(void* addr)
 {
   Dl_info info;
   dladdr(addr, &info);
   std::string tmp(info.dli_fname);
-  std::string so_file = tmp.substr(tmp.rfind("/") + 1);
-  return so_file.substr(3, so_file.length() - 6); // cut off "lib" and ".so"
+  return tmp.substr(tmp.rfind("/") + 1);
 }
 
 const std::vector<tCreateFrameworkElementAction*>& tCreateFrameworkElementAction::GetConstructibleElements()

@@ -46,6 +46,7 @@
 // Internal includes with ""
 //----------------------------------------------------------------------
 #include "plugins/runtime_construction/tConstructorParameters.h"
+#include "plugins/runtime_construction/tSharedLibrary.h"
 
 //----------------------------------------------------------------------
 // Namespace declaration
@@ -97,7 +98,7 @@ public:
   /*!
    * \return Returns name of group to which this create module action belongs
    */
-  virtual std::string GetModuleGroup() const = 0;
+  virtual tSharedLibrary GetModuleGroup() const = 0;
 
   /*!
    * \return Name of module type to be created
@@ -112,7 +113,7 @@ public:
   /*!
    * \return Returns .so file in which address provided as argument is found by dladdr
    */
-  std::string GetBinary(void* addr);
+  tSharedLibrary GetBinary(void* addr);
 
 //----------------------------------------------------------------------
 // Private fields and methods

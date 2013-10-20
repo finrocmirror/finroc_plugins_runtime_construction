@@ -155,7 +155,7 @@ public:
     return CreateModuleImplementation(parent, name, params);
   }
 
-  virtual std::string GetModuleGroup() const
+  virtual tSharedLibrary GetModuleGroup() const
   {
     return group;
   }
@@ -179,7 +179,7 @@ private:
   std::string type_name;
 
   /*! Name of module type */
-  std::string group;
+  tSharedLibrary group;
 
   /*! List with constructor parameters */
   tConstructorParameters constructor_parameters;

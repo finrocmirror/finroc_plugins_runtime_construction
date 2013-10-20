@@ -19,31 +19,32 @@
 // Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 //
 //----------------------------------------------------------------------
-/*!\file    plugins/runtime_construction/dynamic_loading.h
+/*!\file    plugins/runtime_construction/tSharedLibrary.cpp
  *
  * \author  Max Reichardt
  *
- * \date    2012-12-02
- *
- * \brief
- *
- * Contains utility/convenience methods for dynamic loading -
- * finroc libraries in particular.
+ * \date    2013-10-20
  *
  */
 //----------------------------------------------------------------------
-#ifndef __plugins__runtime_construction__dynamic_loading_h__
-#define __plugins__runtime_construction__dynamic_loading_h__
+#include "plugins/runtime_construction/tSharedLibrary.h"
 
 //----------------------------------------------------------------------
 // External includes (system with <>, local with "")
 //----------------------------------------------------------------------
-#include <set>
 
 //----------------------------------------------------------------------
 // Internal includes with ""
 //----------------------------------------------------------------------
-#include "plugins/runtime_construction/tCreateFrameworkElementAction.h"
+
+//----------------------------------------------------------------------
+// Debugging
+//----------------------------------------------------------------------
+#include <cassert>
+
+//----------------------------------------------------------------------
+// Namespace usage
+//----------------------------------------------------------------------
 
 //----------------------------------------------------------------------
 // Namespace declaration
@@ -58,53 +59,45 @@ namespace runtime_construction
 //----------------------------------------------------------------------
 
 //----------------------------------------------------------------------
-// Function declarations
+// Const values
 //----------------------------------------------------------------------
 
-/*!
- * dlopen specified library
- * (also takes care of closing library again on program shutdown)
- *
- * \param open Shared library to open
- * \return Returns true if successful
- */
-bool DLOpen(const tSharedLibrary& open);
+//----------------------------------------------------------------------
+// Implementation
+//----------------------------------------------------------------------
 
-/*!
- * \return Returns vector with all finroc libraries available on hard disk.
- */
-std::set<tSharedLibrary> GetAvailableFinrocLibraries();
+tSharedLibrary::tSharedLibrary() :
+  name(),
+  path()
+{}
 
-/*!
- * \return Returns .so file in which address provided as argument is found by dladdr.
- */
-tSharedLibrary GetBinary(void* addr);
+tSharedLibrary::tSharedLibrary(const std::string& library_name) :
+  name(library_name),
+  path()
+{
+  if (name.rfind('/') != std::string::npos)
+  {
+    path = name.substr(0, name.rfind('/'));
+    name = name.substr(name.rfind('/') + 1);
+  }
 
-/*!
- * \return Returns vector with all libfinroc*.so and librrlib*.so files loaded by current process.
- */
-std::set<tSharedLibrary> GetLoadedFinrocLibraries();
+  if (name.length() > 6 && name.substr(0, 3) == "lib" && name.substr(name.length() - 3) == ".so")
+  {
+    name = name.substr(3, name.length() - 6);
+  }
+}
 
-/*!
- * \return Returns vector with all available finroc libraries that haven't been loaded yet.
- */
-std::vector<tSharedLibrary> GetLoadableFinrocLibraries();
-
-/*!
- * Returns/loads CreateFrameworkElementAction with specified name and specified .so file.
- * (doesn't do any dynamic loading, if .so is already present)
- *
- * \param group Group (.jar or .so)
- * \param name Module type name
- * \return CreateFrameworkElementAction - null if it could not be found
- */
-tCreateFrameworkElementAction* LoadModuleType(const tSharedLibrary& group, const std::string& name);
+std::string tSharedLibrary::ToString(bool platform_dependent) const
+{
+  if (platform_dependent)
+  {
+    return "lib" + name + ".so";
+  }
+  return name;
+}
 
 //----------------------------------------------------------------------
 // End of namespace declaration
 //----------------------------------------------------------------------
 }
 }
-
-
-#endif

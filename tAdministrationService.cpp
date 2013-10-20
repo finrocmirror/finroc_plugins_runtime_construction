@@ -325,7 +325,7 @@ rrlib::serialization::tMemoryBuffer tAdministrationService::GetCreateModuleActio
   {
     const tCreateFrameworkElementAction& create_action = *module_types[i];
     output_stream.WriteString(create_action.GetName());
-    output_stream.WriteString(create_action.GetModuleGroup());
+    output_stream.WriteString(create_action.GetModuleGroup().ToString());
     output_stream.WriteBoolean(create_action.GetParameterTypes());
     if (create_action.GetParameterTypes())
     {
@@ -340,10 +340,10 @@ rrlib::serialization::tMemoryBuffer tAdministrationService::GetModuleLibraries()
 {
   rrlib::serialization::tMemoryBuffer result_buffer;
   rrlib::serialization::tOutputStream output_stream(result_buffer);
-  std::vector<std::string> libs = GetLoadableFinrocLibraries();
+  std::vector<tSharedLibrary> libs = GetLoadableFinrocLibraries();
   for (size_t i = 0; i < libs.size(); i++)
   {
-    output_stream.WriteString(libs[i]);
+    output_stream.WriteString(libs[i].ToString());
   }
   output_stream.Close();
   return result_buffer;
@@ -426,7 +426,7 @@ tAdministrationService::tExecutionStatus tAdministrationService::IsExecuting(int
 rrlib::serialization::tMemoryBuffer tAdministrationService::LoadModuleLibrary(const std::string& library_name)
 {
   FINROC_LOG_PRINT(USER, "Loading library ", library_name);
-  DLOpen(library_name.c_str());
+  DLOpen(library_name);
   return GetCreateModuleActions();
 }
 

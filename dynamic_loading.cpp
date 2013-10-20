@@ -120,9 +120,9 @@ static inline unsigned int GetLongevity(tDLCloser*)
 
 typedef rrlib::design_patterns::tSingletonHolder<tDLCloser, rrlib::design_patterns::singleton::Longevity> tDLCloserInstance;
 
-bool DLOpen(const char* open)
+bool DLOpen(const tSharedLibrary& open)
 {
-  void* handle = dlopen(open, RTLD_NOW | RTLD_GLOBAL);
+  void* handle = dlopen(open.ToString(true).c_str(), RTLD_NOW | RTLD_GLOBAL);
   if (handle)
   {
     tDLCloserInstance::Instance().loaded.push_back(handle);
@@ -133,13 +133,15 @@ bool DLOpen(const char* open)
   return false;
 }
 
-std::set<std::string> GetAvailableFinrocLibraries()
+std::set<tSharedLibrary> GetAvailableFinrocLibraries()
 {
   // this implementation searches in path of libfinroc_core.so and in path <$FINROC_HOME>/export/<$TARGET>/lib
   std::vector<std::string> paths;
-  std::string core_path(GetBinary((void*)GetBinary));
-  core_path = core_path.substr(0, core_path.rfind("/"));
-  paths.push_back(core_path);
+  tSharedLibrary core_lib = GetBinary((void*)GetBinary);
+  if (core_lib.GetPath().length() > 0)
+  {
+    paths.push_back(core_lib.GetPath());
+  }
 
   char* finroc_home = getenv("FINROC_HOME");
   char* target = getenv("FINROC_TARGET");
@@ -150,14 +152,14 @@ std::set<std::string> GetAvailableFinrocLibraries()
   else
   {
     std::string local_path = std::string(finroc_home) + "/export/" + std::string(target) + "/lib";
-    if (local_path.compare(core_path) != 0)
+    if (local_path != core_lib.GetPath())
     {
-      FINROC_LOG_PRINTF(DEBUG, "Searching for finroc modules in %s and %s.\n", core_path.c_str(), local_path.c_str());
+      FINROC_LOG_PRINTF(DEBUG, "Searching for finroc modules in %s and %s.", core_lib.GetPath().c_str(), local_path.c_str());
       paths.push_back(local_path);
     }
   }
 
-  std::set<std::string> result;
+  std::set<tSharedLibrary> result;
   for (size_t i = 0; i < paths.size(); i++)
   {
     std::string path = paths[i];
@@ -181,15 +183,15 @@ std::set<std::string> GetAvailableFinrocLibraries()
 }
 
 
-std::string GetBinary(void* addr)
+tSharedLibrary GetBinary(void* addr)
 {
   Dl_info info;
   dladdr(addr, &info);
-  return info.dli_fname;
+  return tSharedLibrary(info.dli_fname);
 }
 
 
-std::set<std::string> GetLoadedFinrocLibraries()
+std::set<tSharedLibrary> GetLoadedFinrocLibraries()
 {
   // this implementation looks in /proc/<pid>/maps for loaded .so files
 
@@ -199,7 +201,7 @@ std::set<std::string> GetLoadedFinrocLibraries()
   // scan for loaded .so files
   std::stringstream mapsfile;
   mapsfile << "/proc/" << pid << "/maps";
-  std::set<std::string> result;
+  std::set<tSharedLibrary> result;
   std::ifstream maps(mapsfile.str().c_str());
   std::string line;
   while (!maps.eof())
@@ -207,19 +209,19 @@ std::set<std::string> GetLoadedFinrocLibraries()
     std::getline(maps, line);
     if (line.find("/libfinroc_") != std::string::npos && line.substr(line.length() - 3, 3).compare(".so") == 0)
     {
-      std::string loaded = line.substr(line.find("/libfinroc_") + 1);
+      tSharedLibrary loaded = line.substr(line.find("/libfinroc_") + 1);
       if (result.find(loaded) == result.end())
       {
-        FINROC_LOG_PRINTF(DEBUG_VERBOSE_1, "Found loaded finroc library: %s", loaded.c_str());
+        FINROC_LOG_PRINT(DEBUG_VERBOSE_1, "Found loaded finroc library: ", loaded.ToString(true));
         result.insert(loaded);
       }
     }
     else if (line.find("/librrlib_") != std::string::npos && line.substr(line.length() - 3, 3).compare(".so") == 0)
     {
-      std::string loaded = line.substr(line.find("/librrlib_") + 1);
+      tSharedLibrary loaded = line.substr(line.find("/librrlib_") + 1);
       if (result.find(loaded) == result.end())
       {
-        FINROC_LOG_PRINTF(DEBUG_VERBOSE_1, "Found loaded finroc library: %s", loaded.c_str());
+        FINROC_LOG_PRINT(DEBUG_VERBOSE_1, "Found loaded finroc library: ", loaded.ToString(true));
         result.insert(loaded);
       }
     }
@@ -228,12 +230,12 @@ std::set<std::string> GetLoadedFinrocLibraries()
   return result;
 }
 
-std::vector<std::string> GetLoadableFinrocLibraries()
+std::vector<tSharedLibrary> GetLoadableFinrocLibraries()
 {
-  std::vector<std::string> result;
-  std::set<std::string> available = GetAvailableFinrocLibraries();
-  std::set<std::string> loaded = GetLoadedFinrocLibraries();
-  std::set<std::string>::iterator it;
+  std::vector<tSharedLibrary> result;
+  std::set<tSharedLibrary> available = GetAvailableFinrocLibraries();
+  std::set<tSharedLibrary> loaded = GetLoadedFinrocLibraries();
+  std::set<tSharedLibrary>::iterator it;
   for (it = available.begin(); it != available.end(); ++it)
   {
     if (loaded.find(*it) == loaded.end())
@@ -244,17 +246,17 @@ std::vector<std::string> GetLoadableFinrocLibraries()
   return result;
 }
 
-tCreateFrameworkElementAction* LoadModuleType(const std::string& group, const std::string& name)
+tCreateFrameworkElementAction* LoadModuleType(const tSharedLibrary& group, const std::string& name)
 {
   // dynamically loaded .so files
-  static std::vector<std::string> loaded;
+  static std::vector<tSharedLibrary> loaded;
 
   // try to find module among existing modules
   const std::vector<tCreateFrameworkElementAction*>& modules = tCreateFrameworkElementAction::GetConstructibleElements();
   for (size_t i = 0u; i < modules.size(); i++)
   {
     tCreateFrameworkElementAction* cma = modules[i];
-    if (cma->GetModuleGroup().compare(group) == 0 && cma->GetName().compare(name) == 0)
+    if (cma->GetModuleGroup() == group && cma->GetName().compare(name) == 0)
     {
       return cma;
     }
@@ -262,11 +264,10 @@ tCreateFrameworkElementAction* LoadModuleType(const std::string& group, const st
 
 
   // hmm... we didn't find it - have we already tried to load .so?
-  std::string group_so_file = "lib" + group + ".so";
   bool already_loaded = false;
   for (size_t i = 0; i < loaded.size(); i++)
   {
-    if (loaded[i].compare(group_so_file) == 0)
+    if (loaded[i] == group)
     {
       already_loaded = true;
       break;
@@ -275,15 +276,15 @@ tCreateFrameworkElementAction* LoadModuleType(const std::string& group, const st
 
   if (!already_loaded)
   {
-    loaded.push_back(group_so_file);
-    std::set<std::string> loaded = GetLoadedFinrocLibraries();
-    if (loaded.find(group_so_file) == loaded.end() && DLOpen(group_so_file.c_str()))
+    loaded.push_back(group);
+    std::set<tSharedLibrary> loaded = GetLoadedFinrocLibraries();
+    if (loaded.find(group) == loaded.end() && DLOpen(group))
     {
       return LoadModuleType(group, name);
     }
   }
 
-  FINROC_LOG_PRINT(ERROR, "Could not find/load module ", name, " in ", group_so_file);
+  FINROC_LOG_PRINT(ERROR, "Could not find/load module ", name, " in ", group.ToString());
   return NULL;
 }
 
