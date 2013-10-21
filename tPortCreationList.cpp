@@ -103,7 +103,7 @@ inline tFlags ToFlags(tPortCreateOptions create_options, tPortCreateOptions sele
 
 
 tPortCreationList::tPortCreationList() :
-  selectable_create_options(false),
+  selectable_create_options(),
   list(),
   io_vector(NULL),
   flags(tFlags()),
@@ -111,12 +111,21 @@ tPortCreationList::tPortCreationList() :
 {}
 
 tPortCreationList::tPortCreationList(core::tFrameworkElement& port_group, tFlags flags, const tPortCreateOptions& selectable_create_options, bool ports_flagged_finstructed) :
-  selectable_create_options(selectable_create_options),
+  selectable_create_options(),
   list(),
   io_vector(&port_group),
   flags(flags | (ports_flagged_finstructed ? tFlag::FINSTRUCTED : tFlag::PORT)),
   ports_flagged_finstructed(ports_flagged_finstructed)
-{}
+{
+  if (!flags.Get(tFlag::SHARED) && selectable_create_options.Get(tPortCreateOption::SHARED))
+  {
+    this->selectable_create_options |= tPortCreateOption::SHARED;
+  }
+  if (!flags.Get(tFlag::OUTPUT_PORT) && selectable_create_options.Get(tPortCreateOption::OUTPUT))
+  {
+    this->selectable_create_options |= tPortCreateOption::OUTPUT;
+  }
+}
 
 void tPortCreationList::Add(const std::string& name, rrlib::rtti::tType dt, const tPortCreateOptions& create_options)
 {
@@ -371,7 +380,7 @@ const rrlib::xml::tNode& operator >> (const rrlib::xml::tNode& node, tPortCreati
     std::string port_name = port->Name();
     assert(port_name.compare("port") == 0);
     tPortCreateOptions create_options;
-    if (list.selectable_create_options.Get(tPortCreateOption::OUTPUT) && port->GetBoolAttribute("output"))
+    if (list.selectable_create_options.Get(tPortCreateOption::OUTPUT) && port->HasAttribute("output") && port->GetBoolAttribute("output"))
     {
       create_options |= tPortCreateOption::OUTPUT;
     }

@@ -176,6 +176,12 @@ private:
 
   /*! Bitset that defines which interfaces should be shared with other runtime environments */
   const std::bitset<cMAX_INTERFACE_COUNT> shared_interfaces;
+
+  /*!
+   * \interface_index Index of interface
+   * \return Default port flags for specified interface
+   */
+  core::tFrameworkElement::tFlags GetDefaultPortFlags(size_t interface_index) const;
 };
 
 

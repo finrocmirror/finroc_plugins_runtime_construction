@@ -102,13 +102,21 @@ core::tPortGroup& tEditableInterfaces::CreateInterface(core::tFrameworkElement* 
   }
 
   const tStaticInterfaceInfo& static_info = static_interface_info[index];
-  interface_array[index] = new core::tPortGroup(parent, static_info.name, tFlag::INTERFACE | static_info.extra_interface_flags,
-      static_info.default_port_flags | (shared_interfaces[index] ? tFlags(tFlag::SHARED) : tFlags()));
+  interface_array[index] = new core::tPortGroup(parent, static_info.name, tFlag::INTERFACE | static_info.extra_interface_flags, GetDefaultPortFlags(index));
   if (initialize)
   {
     interface_array[index]->Init();
   }
   return *(interface_array[index]);
+}
+
+tFlags tEditableInterfaces::GetDefaultPortFlags(size_t interface_index) const
+{
+  if (interface_index > static_interface_info.size())
+  {
+    throw new std::out_of_range("Index is out of bounds");
+  }
+  return static_interface_info[interface_index].default_port_flags | (shared_interfaces[interface_index] ? tFlags(tFlag::SHARED) : tFlags());
 }
 
 void tEditableInterfaces::LoadInterfacePorts(const rrlib::xml::tNode& node)
@@ -126,7 +134,7 @@ void tEditableInterfaces::LoadInterfacePorts(const rrlib::xml::tNode& node)
         CreateInterface(GetAnnotated<core::tFrameworkElement>(), i, GetAnnotated<core::tFrameworkElement>()->IsReady());
       }
 
-      tPortCreationList port_creation_list(*interface_array[i], static_interface_info[i].default_port_flags, static_interface_info[i].selectable_create_options);
+      tPortCreationList port_creation_list(*interface_array[i], GetDefaultPortFlags(i), static_interface_info[i].selectable_create_options);
       node >> port_creation_list;
       return;
     }
@@ -162,7 +170,7 @@ void tEditableInterfaces::SaveInterfacePorts(rrlib::xml::tNode& node, size_t ind
   node.SetAttribute("name", static_info.name);
   if (port_group)
   {
-    tPortCreationList port_creation_list(*port_group, static_info.default_port_flags, static_info.selectable_create_options);
+    tPortCreationList port_creation_list(*port_group, GetDefaultPortFlags(index), static_info.selectable_create_options);
     node << port_creation_list;
   }
 }
@@ -179,9 +187,18 @@ rrlib::serialization::tOutputStream& operator << (rrlib::serialization::tOutputS
     stream.WriteBoolean(*current_interface_array);
     if (*current_interface_array)
     {
-      tPortCreationList port_creation_list(**current_interface_array, interfaces.static_interface_info[i].default_port_flags,
+      tPortCreationList port_creation_list(**current_interface_array, interfaces.GetDefaultPortFlags(i),
                                            interfaces.static_interface_info[i].selectable_create_options);
       stream << port_creation_list;
+    }
+    else
+    {
+      tPortCreateOptions selectable = interfaces.static_interface_info[i].selectable_create_options;
+      if (interfaces.shared_interfaces[i])
+      {
+        selectable.Set(tPortCreateOption::SHARED, false);
+      }
+      stream << selectable.Raw();
     }
     current_interface_array++;
   }
@@ -210,6 +227,7 @@ rrlib::serialization::tInputStream& operator >> (rrlib::serialization::tInputStr
     bool interface_has_ports = stream.ReadBoolean();
     if (!interface_has_ports)
     {
+      stream.ReadByte(); // selectable_create_options
       if ((*current_interface_array))
       {
         for (auto it = (*current_interface_array)->ChildPortsBegin(); it != (*current_interface_array)->ChildPortsEnd(); ++it)
@@ -229,7 +247,7 @@ rrlib::serialization::tInputStream& operator >> (rrlib::serialization::tInputStr
         interfaces.CreateInterface(interfaces.GetAnnotated<core::tFrameworkElement>(), i, interfaces.GetAnnotated<core::tFrameworkElement>()->IsReady());
       }
 
-      tPortCreationList port_creation_list(**current_interface_array, interfaces.static_interface_info[i].default_port_flags,
+      tPortCreationList port_creation_list(**current_interface_array, interfaces.GetDefaultPortFlags(i),
                                            interfaces.static_interface_info[i].selectable_create_options);
       stream >> port_creation_list;
     }
