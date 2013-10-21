@@ -44,6 +44,7 @@
 // External includes (system with <>, local with "")
 //----------------------------------------------------------------------
 #include "core/port/tPortGroup.h"
+#include "plugins/runtime_construction/tPortCreationList.h"
 #include <bitset>
 
 //----------------------------------------------------------------------
@@ -99,8 +100,8 @@ public:
     /*! Any extra flags to assign to all ports */
     core::tFrameworkElement::tFlags default_port_flags;
 
-    /*! Should output port selection be visible in finstruct? (the user can select whether port is input or output port) */
-    bool show_output_port_selection;
+    /*! Which creation options should be visible and selectable in finstruct? */
+    tPortCreateOptions selectable_create_options;
   };
 
   /*! Should not be called. Exists for rrlib_rtti */

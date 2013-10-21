@@ -126,7 +126,7 @@ void tEditableInterfaces::LoadInterfacePorts(const rrlib::xml::tNode& node)
         CreateInterface(GetAnnotated<core::tFrameworkElement>(), i, GetAnnotated<core::tFrameworkElement>()->IsReady());
       }
 
-      tPortCreationList port_creation_list(*interface_array[i], static_interface_info[i].default_port_flags, static_interface_info[i].show_output_port_selection);
+      tPortCreationList port_creation_list(*interface_array[i], static_interface_info[i].default_port_flags, static_interface_info[i].selectable_create_options);
       node >> port_creation_list;
       return;
     }
@@ -162,7 +162,7 @@ void tEditableInterfaces::SaveInterfacePorts(rrlib::xml::tNode& node, size_t ind
   node.SetAttribute("name", static_info.name);
   if (port_group)
   {
-    tPortCreationList port_creation_list(*port_group, static_info.default_port_flags, static_info.show_output_port_selection);
+    tPortCreationList port_creation_list(*port_group, static_info.default_port_flags, static_info.selectable_create_options);
     node << port_creation_list;
   }
 }
@@ -180,7 +180,7 @@ rrlib::serialization::tOutputStream& operator << (rrlib::serialization::tOutputS
     if (*current_interface_array)
     {
       tPortCreationList port_creation_list(**current_interface_array, interfaces.static_interface_info[i].default_port_flags,
-                                           interfaces.static_interface_info[i].show_output_port_selection);
+                                           interfaces.static_interface_info[i].selectable_create_options);
       stream << port_creation_list;
     }
     current_interface_array++;
@@ -230,7 +230,7 @@ rrlib::serialization::tInputStream& operator >> (rrlib::serialization::tInputStr
       }
 
       tPortCreationList port_creation_list(**current_interface_array, interfaces.static_interface_info[i].default_port_flags,
-                                           interfaces.static_interface_info[i].show_output_port_selection);
+                                           interfaces.static_interface_info[i].selectable_create_options);
       stream >> port_creation_list;
     }
     current_interface_array++;

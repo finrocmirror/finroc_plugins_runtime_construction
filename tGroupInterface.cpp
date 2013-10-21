@@ -76,14 +76,20 @@ tGroupInterface::tGroupInterface(core::tFrameworkElement* parent, const std::str
   tPortGroup(parent, name, tFlag::INTERFACE, tFlags()),
   ports("Ports", this)
 {
-  ports.Get().InitialSetup(*this, tFlags(), true);
+  ports.Get().InitialSetup(*this, tFlags(), tPortCreateOption::OUTPUT | tPortCreateOption::SHARED);
 }
 
 tGroupInterface::tGroupInterface(core::tFrameworkElement* parent, const std::string& name, tDataClassification data_class, tPortDirection port_dir, bool shared, bool unique_link) :
   tPortGroup(parent, name, ComputeFlags(data_class, shared, unique_link), ComputePortFlags(port_dir, shared, unique_link)),
   ports("Ports", this)
 {
-  ports.Get().InitialSetup(*this, ComputePortFlags(port_dir, shared, unique_link), port_dir == tPortDirection::BOTH);
+  tPortCreateOptions selectable_create_options = shared ? tPortCreateOptions() : tPortCreateOptions(tPortCreateOption::SHARED);
+  if (port_dir == tPortDirection::BOTH)
+  {
+    selectable_create_options |= tPortCreateOption::OUTPUT;
+  }
+
+  ports.Get().InitialSetup(*this, ComputePortFlags(port_dir, shared, unique_link), selectable_create_options);
 }
 
 core::tFrameworkElement::tFlags tGroupInterface::ComputeFlags(tDataClassification data_class, bool shared, bool unique_link)

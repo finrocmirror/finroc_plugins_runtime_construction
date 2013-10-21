@@ -60,6 +60,7 @@ namespace runtime_construction
 // Forward declarations / typedefs / enums
 //----------------------------------------------------------------------
 typedef core::tFrameworkElement::tFlag tFlag;
+typedef core::tFrameworkElement::tFlags tFlags;
 
 //----------------------------------------------------------------------
 // Const values
@@ -72,26 +73,55 @@ typedef core::tFrameworkElement::tFlag tFlag;
 static const core::tFrameworkElement::tFlags cRELEVANT_FLAGS = tFlag::SHARED | tFlag::VOLATILE;
 static rrlib::rtti::tDataType<tPortCreationList> cTYPE;
 
+inline tPortCreateOptions ToPortCreateOptions(tFlags flags, tPortCreateOptions selectable_create_options)
+{
+  tPortCreateOptions result;
+  if (selectable_create_options.Get(tPortCreateOption::SHARED) && flags.Get(tFlag::SHARED))
+  {
+    result |= tPortCreateOption::SHARED;
+  }
+  if (selectable_create_options.Get(tPortCreateOption::OUTPUT) && flags.Get(tFlag::OUTPUT_PORT))
+  {
+    result |= tPortCreateOption::OUTPUT;
+  }
+  return result;
+}
+
+inline tFlags ToFlags(tPortCreateOptions create_options, tPortCreateOptions selectable_create_options)
+{
+  tFlags result;
+  if (selectable_create_options.Get(tPortCreateOption::SHARED) && create_options.Get(tPortCreateOption::SHARED))
+  {
+    result |= tFlag::SHARED;
+  }
+  if (selectable_create_options.Get(tPortCreateOption::OUTPUT) && create_options.Get(tPortCreateOption::OUTPUT))
+  {
+    result |= tFlag::OUTPUT_PORT;
+  }
+  return result;
+}
+
+
 tPortCreationList::tPortCreationList() :
-  show_output_port_selection(false),
+  selectable_create_options(false),
   list(),
   io_vector(NULL),
   flags(tFlags()),
   ports_flagged_finstructed()
 {}
 
-tPortCreationList::tPortCreationList(core::tFrameworkElement& port_group, tFlags flags, bool show_output_port_selection, bool ports_flagged_finstructed) :
-  show_output_port_selection(show_output_port_selection),
+tPortCreationList::tPortCreationList(core::tFrameworkElement& port_group, tFlags flags, const tPortCreateOptions& selectable_create_options, bool ports_flagged_finstructed) :
+  selectable_create_options(selectable_create_options),
   list(),
   io_vector(&port_group),
   flags(flags | (ports_flagged_finstructed ? tFlag::FINSTRUCTED : tFlag::PORT)),
   ports_flagged_finstructed(ports_flagged_finstructed)
 {}
 
-void tPortCreationList::Add(const std::string& name, rrlib::rtti::tType dt, bool output)
+void tPortCreationList::Add(const std::string& name, rrlib::rtti::tType dt, const tPortCreateOptions& create_options)
 {
   rrlib::thread::tLock lock(io_vector->GetStructureMutex());
-  CheckPort(NULL, *io_vector, flags, name, dt, output, NULL);
+  CheckPort(NULL, *io_vector, flags, name, dt, create_options, NULL);
 }
 
 void tPortCreationList::ApplyChanges(core::tFrameworkElement& io_vector_, tFlags flags_)
@@ -106,7 +136,7 @@ void tPortCreationList::ApplyChanges(core::tFrameworkElement& io_vector_, tFlags
   {
     core::tAbstractPort* ap1 = ports1[i];
     core::tAbstractPort* ap2 = i < ports2.size() ? ports2[i] : NULL;
-    CheckPort(ap2, io_vector_, flags_, ap1->GetName(), ap1->GetDataType(), ap1->IsOutputPort(), ap1);
+    CheckPort(ap2, io_vector_, flags_, ap1->GetName(), ap1->GetDataType(), ToPortCreateOptions(ap1->GetAllFlags(), selectable_create_options), ap1);
   }
   for (size_t i = ports1.size(); i < ports2.size(); i++)
   {
@@ -115,14 +145,17 @@ void tPortCreationList::ApplyChanges(core::tFrameworkElement& io_vector_, tFlags
 }
 
 void tPortCreationList::CheckPort(core::tAbstractPort* existing_port, core::tFrameworkElement& io_vector, tFlags flags,
-                                  const std::string& name, rrlib::rtti::tType type, bool output, core::tAbstractPort* prototype)
+                                  const std::string& name, rrlib::rtti::tType type, const tPortCreateOptions& create_options, core::tAbstractPort* prototype)
 {
   if (existing_port && existing_port->NameEquals(name) && existing_port->GetDataType() == type &&
-      existing_port->GetFlag(tFlag::SHARED) == flags.Get(tFlag::SHARED) &&
       existing_port->GetFlag(tFlag::VOLATILE) == flags.Get(tFlag::VOLATILE))
   {
-    if ((!show_output_port_selection) || (output == existing_port->IsOutputPort()))
+    bool create_output_port = create_options.Get(tPortCreateOption::OUTPUT) || flags.Get(tFlag::OUTPUT_PORT);
+    bool create_shared_port = create_options.Get(tPortCreateOption::SHARED) || flags.Get(tFlag::SHARED);
+    if (((!selectable_create_options.Get(tPortCreateOption::OUTPUT)) || (existing_port->GetFlag(tFlag::OUTPUT_PORT) == create_output_port)) &&
+        ((!selectable_create_options.Get(tPortCreateOption::SHARED)) || (existing_port->GetFlag(tFlag::SHARED) == create_shared_port)))
     {
+      // port is as it should be
       return;
     }
   }
@@ -132,16 +165,12 @@ void tPortCreationList::CheckPort(core::tAbstractPort* existing_port, core::tFra
   }
 
   // compute flags to use
-  tFlags tmp = tFlag::ACCEPTS_DATA | tFlag::EMITS_DATA; // proxy port
-  if (show_output_port_selection && output)
-  {
-    tmp |= tFlag::OUTPUT_PORT;
-  }
+  flags |= tFlag::ACCEPTS_DATA | tFlag::EMITS_DATA; // proxy port
+  flags |= ToFlags(create_options, selectable_create_options);
   if (ports_flagged_finstructed)
   {
-    tmp |= tFlag::FINSTRUCTED;
+    flags |= tFlag::FINSTRUCTED;
   }
-  flags |= tmp;
 
   FINROC_LOG_PRINT_TO(port_creation_list, DEBUG_VERBOSE_1, "Creating port ", name, " in IOVector ", io_vector.GetQualifiedLink());
   core::tAbstractPort* created_port = core::tPortFactory::CreatePort(name, io_vector, type, flags);
@@ -181,18 +210,18 @@ int tPortCreationList::GetSize() const
   return count;
 }
 
-void tPortCreationList::InitialSetup(core::tFrameworkElement& managed_io_vector, tFlags port_creation_flags, bool show_output_port_selection)
+void tPortCreationList::InitialSetup(core::tFrameworkElement& managed_io_vector, tFlags port_creation_flags, const tPortCreateOptions& selectable_create_options)
 {
   assert((io_vector == NULL || io_vector == &managed_io_vector) && list.empty());
   io_vector = &managed_io_vector;
   flags = port_creation_flags;
-  this->show_output_port_selection = show_output_port_selection;
+  this->selectable_create_options = selectable_create_options;
 }
 
-tPortCreationList::tEntry::tEntry(const std::string& name, const std::string& type, bool output_port) :
+tPortCreationList::tEntry::tEntry(const std::string& name, const std::string& type, const tPortCreateOptions& create_options) :
   name(name),
   type(),
-  output_port(output_port)
+  create_options(create_options)
 {
   rrlib::serialization::tStringInputStream sis(type);
   sis >> this->type;
@@ -201,7 +230,7 @@ tPortCreationList::tEntry::tEntry(const std::string& name, const std::string& ty
 
 rrlib::serialization::tOutputStream& operator << (rrlib::serialization::tOutputStream& stream, const tPortCreationList& list)
 {
-  stream.WriteBoolean(list.show_output_port_selection);
+  stream.WriteByte(list.selectable_create_options.Raw());
   if (list.io_vector == NULL)
   {
     int size = list.list.size();
@@ -211,7 +240,7 @@ rrlib::serialization::tOutputStream& operator << (rrlib::serialization::tOutputS
       const tPortCreationList::tEntry& e = list.list[i];
       stream.WriteString(e.name);
       stream.WriteString(e.type.Get().GetName());
-      stream.WriteBoolean(e.output_port);
+      stream.WriteByte(e.create_options.Raw());
     }
   }
   else
@@ -226,7 +255,7 @@ rrlib::serialization::tOutputStream& operator << (rrlib::serialization::tOutputS
       core::tAbstractPort* p = ports[i];
       stream.WriteString(p->GetName());
       stream.WriteString(p->GetDataType().GetName());
-      stream.WriteBoolean(p->IsOutputPort());
+      stream.WriteByte(ToPortCreateOptions(p->GetAllFlags(), list.selectable_create_options).Raw());
     }
   }
   return stream;
@@ -236,20 +265,20 @@ rrlib::serialization::tInputStream& operator >> (rrlib::serialization::tInputStr
 {
   if (list.io_vector == NULL)
   {
-    list.show_output_port_selection = stream.ReadBoolean();
+    list.selectable_create_options = tPortCreateOptions(stream.ReadByte());
     size_t size = stream.ReadInt();
     list.list.clear();
     for (size_t i = 0u; i < size; i++)
     {
       std::string name = stream.ReadString();
       std::string type = stream.ReadString();
-      list.list.emplace_back(name, type, stream.ReadBoolean());
+      list.list.emplace_back(name, type, tPortCreateOptions(stream.ReadByte()));
     }
   }
   else
   {
     rrlib::thread::tLock lock(list.io_vector->GetStructureMutex());
-    list.show_output_port_selection = stream.ReadBoolean();
+    stream.ReadByte(); // skip selectable create options, as this is not defined by finstruct
     size_t size = stream.ReadInt();
     std::vector<core::tAbstractPort*> existing_ports;
     list.GetPorts(*list.io_vector, existing_ports, list.ports_flagged_finstructed);
@@ -263,7 +292,7 @@ rrlib::serialization::tInputStream& operator >> (rrlib::serialization::tInputStr
         FINROC_LOG_PRINT(ERROR, "Error checking port from port creation deserialization: Type " + type_name + " not available");
         throw std::runtime_error("Error checking port from port creation list deserialization: Type " + type_name + " not available");
       }
-      bool output = stream.ReadBoolean();
+      tPortCreateOptions create_options(stream.ReadByte());
 
       core::tAbstractPort* existing_port_with_this_name = NULL;
       for (auto it = existing_ports.begin(); it != existing_ports.end(); ++it)
@@ -275,7 +304,7 @@ rrlib::serialization::tInputStream& operator >> (rrlib::serialization::tInputStr
           break;
         }
       }
-      list.CheckPort(existing_port_with_this_name, *list.io_vector, list.flags, name, type, output, NULL);
+      list.CheckPort(existing_port_with_this_name, *list.io_vector, list.flags, name, type, create_options, NULL);
     }
 
     // delete any remaining ports
@@ -297,7 +326,7 @@ rrlib::xml::tNode& operator << (rrlib::xml::tNode& node, const tPortCreationList
   rrlib::thread::tLock lock(list.io_vector->GetStructureMutex());
   if (!list.ports_flagged_finstructed)
   {
-    node.SetAttribute("showOutputSelection", list.show_output_port_selection);
+    node.SetAttribute("showOutputSelection", list.selectable_create_options.Get(tPortCreateOption::OUTPUT));
   }
   std::vector<core::tAbstractPort*> ports;
   list.GetPorts(*list.io_vector, ports, list.ports_flagged_finstructed);
@@ -309,9 +338,13 @@ rrlib::xml::tNode& operator << (rrlib::xml::tNode& node, const tPortCreationList
     child.SetAttribute("name", p->GetName());
     child.SetAttribute("type", p->GetDataType().GetName());
     tFinstructableGroup::AddDependency(p->GetDataType());
-    if (list.show_output_port_selection)
+    if (list.selectable_create_options.Get(tPortCreateOption::OUTPUT))
     {
       child.SetAttribute("output", p->IsOutputPort());
+    }
+    if (list.selectable_create_options.Get(tPortCreateOption::SHARED) && p->GetFlag(tFlag::SHARED))
+    {
+      child.SetAttribute("shared", true);
     }
   }
   return node;
@@ -327,7 +360,7 @@ const rrlib::xml::tNode& operator >> (const rrlib::xml::tNode& node, tPortCreati
   rrlib::thread::tLock lock(list.io_vector->GetStructureMutex());
   if (!list.ports_flagged_finstructed)
   {
-    list.show_output_port_selection = node.GetBoolAttribute("showOutputSelection");
+    list.selectable_create_options.Set(tPortCreateOption::OUTPUT, node.GetBoolAttribute("showOutputSelection"));
   }
   std::vector<core::tAbstractPort*> ports;
   list.GetPorts(*list.io_vector, ports, list.ports_flagged_finstructed);
@@ -337,10 +370,14 @@ const rrlib::xml::tNode& operator >> (const rrlib::xml::tNode& node, tPortCreati
     core::tAbstractPort* ap = i < ports.size() ? ports[i] : NULL;
     std::string port_name = port->Name();
     assert(port_name.compare("port") == 0);
-    bool b = false;
-    if (list.show_output_port_selection)
+    tPortCreateOptions create_options;
+    if (list.selectable_create_options.Get(tPortCreateOption::OUTPUT) && port->GetBoolAttribute("output"))
     {
-      b = port->GetBoolAttribute("output");
+      create_options |= tPortCreateOption::OUTPUT;
+    }
+    if (list.selectable_create_options.Get(tPortCreateOption::SHARED) && port->HasAttribute("shared") && port->GetBoolAttribute("shared"))
+    {
+      create_options |= tPortCreateOption::SHARED;
     }
     std::string dt_name = port->GetStringAttribute("type");
     rrlib::rtti::tType dt = rrlib::rtti::tType::FindType(dt_name);
@@ -349,7 +386,7 @@ const rrlib::xml::tNode& operator >> (const rrlib::xml::tNode& node, tPortCreati
       FINROC_LOG_PRINT(ERROR, "Error checking port from port creation deserialization: Type " + dt_name + " not available");
       throw std::runtime_error("Error checking port from port creation list deserialization: Type " + dt_name + " not available");
     }
-    list.CheckPort(ap, *list.io_vector, list.flags, port->GetStringAttribute("name"), dt, b, NULL);
+    list.CheckPort(ap, *list.io_vector, list.flags, port->GetStringAttribute("name"), dt, create_options, NULL);
   }
   for (; i < ports.size(); i++)
   {

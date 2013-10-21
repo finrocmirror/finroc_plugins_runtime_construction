@@ -73,7 +73,7 @@ tGroup::tGroup(tFrameworkElement* parent, const std::string& name, tFlags flags)
   tPortGroup(parent, name, flags, tFlags()),
   ports("Ports", this)
 {
-  ports.Get().InitialSetup(*this, tFlags(), true);
+  ports.Get().InitialSetup(*this, tFlags(), tPortCreateOption::OUTPUT | tPortCreateOption::SHARED);
 }
 
 //----------------------------------------------------------------------

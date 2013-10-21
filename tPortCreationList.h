@@ -60,6 +60,28 @@ namespace runtime_construction
 // Forward declarations / typedefs / enums
 //----------------------------------------------------------------------
 
+/*! Port Creation options for single ports in port creation list */
+enum class tPortCreateOption
+{
+  OUTPUT, //!< Create an output port?
+  SHARED  //!< Creast a shared port?
+};
+
+/*!
+ * Set of port creation options
+ */
+typedef rrlib::util::tEnumBasedFlags<tPortCreateOption, uint8_t> tPortCreateOptions;
+
+constexpr tPortCreateOptions operator | (const tPortCreateOptions& options1, const tPortCreateOptions& options2)
+{
+  return tPortCreateOptions(options1.Raw() | options2.Raw());
+}
+
+constexpr tPortCreateOptions operator | (tPortCreateOption option1, tPortCreateOption option2)
+{
+  return tPortCreateOptions(option1) | tPortCreateOptions(option2);
+}
+
 //----------------------------------------------------------------------
 // Class declaration
 //----------------------------------------------------------------------
@@ -84,31 +106,32 @@ public:
   /*!
    * \param port_group Port group that this list is used for editing for
    * \param flags Flags for port creation
-   * \param show_output_port_selection Should output port selection be visible in finstruct? (the user can select whether port is input or output port)
+   * \param selectable_create_options Which creation options should be visible and selectable in finstruct?
    * \param ports_flagged_finstructed Deal only with ports flagged finstructed?
    */
-  tPortCreationList(core::tFrameworkElement& port_group, tFlags flags, bool show_output_port_selection, bool ports_flagged_finstructed = true);
+  tPortCreationList(core::tFrameworkElement& port_group, tFlags flags,
+                    const tPortCreateOptions& selectable_create_options, bool ports_flagged_finstructed = true);
 
   /*!
    * Add entry to list
    *
    * \param name Port name
    * \param dt Data type
-   * \param output Output port? (possibly irrelevant)
+   * \param create_options Create options for this port
    */
-  void Add(const std::string& name, rrlib::rtti::tType dt, bool output);
+  void Add(const std::string& name, rrlib::rtti::tType dt, const tPortCreateOptions& create_options = tPortCreateOptions());
 
   /*!
    * Add entry to list
    *
    * \param T Data type
    * \param name Port name
-   * \param output Output port? (possibly irrelevant)
+   * \param create_options Create options for this port
    */
   template <typename T>
-  void Add(const std::string& name, bool output = false)
+  void Add(const std::string& name, const tPortCreateOptions& create_options = tPortCreateOptions())
   {
-    Add(name, rrlib::rtti::tDataType<typename data_ports::tPort<T>::tPortBuffer>(), output);
+    Add(name, rrlib::rtti::tDataType<typename data_ports::tPort<T>::tPortBuffer>(), create_options);
   }
 
   /*!
@@ -129,9 +152,9 @@ public:
    *
    * \param managed_io_vector FrameworkElement that list is wrapping
    * \param port_creation_flags Flags for port creation
-   * \param show_output_port_selection Should output port selection be visible in finstruct?
+   * \param selectable_create_options Which creation options should be visible and selectable in finstruct?
    */
-  void InitialSetup(core::tFrameworkElement& managed_io_vector, tFlags port_creation_flags, bool show_output_port_selection);
+  void InitialSetup(core::tFrameworkElement& managed_io_vector, tFlags port_creation_flags, const tPortCreateOptions& selectable_create_options = tPortCreateOptions());
 
 //----------------------------------------------------------------------
 // Private fields and methods
@@ -156,15 +179,18 @@ private:
     /*! Port type - as string (used remote) */
     tDataTypeReference type;
 
-    /*! Output port? */
-    bool output_port;
+    /*! Port creation options for this specific port (e.g. output port? shared port?) */
+    tPortCreateOptions create_options;
 
-    tEntry(const std::string& name, const std::string& type, bool output_port);
+    tEntry(const std::string& name, const std::string& type, const tPortCreateOptions& create_options);
 
   };
 
-  /*! Should output port selection be visible in finstruct? (the user can select whether port is input or output port) */
-  bool show_output_port_selection;
+  /*!
+   * Which creation options should be visible and selectable in finstruct?
+   * (the user can e.g. select whether port is input or output port - or shared)
+   */
+  tPortCreateOptions selectable_create_options;
 
   /*! List backend (for remote Runtimes) */
   std::vector<tEntry> list;
@@ -190,11 +216,11 @@ private:
    * \param flags Creation flags
    * \param name New name
    * \param type new data type
-   * \param output output port
+   * \param create_options Selected create options for port
    * \param prototype Port prototype (only interesting for listener)
    */
   void CheckPort(core::tAbstractPort* existing_port, core::tFrameworkElement& io_vector, tFlags flags, const std::string& name,
-                 rrlib::rtti::tType type, bool output, core::tAbstractPort* prototype);
+                 rrlib::rtti::tType type, const tPortCreateOptions& create_options, core::tAbstractPort* prototype);
 
   /*!
    * Returns all child ports of specified framework element
