@@ -80,6 +80,7 @@ public:
    * \param name Name of shared library. Can be platform-dependent (lib*.so on Linux) or platform-independent.
    */
   tSharedLibrary(const std::string& name);
+  tSharedLibrary(const char* name);
 
   tSharedLibrary();
 

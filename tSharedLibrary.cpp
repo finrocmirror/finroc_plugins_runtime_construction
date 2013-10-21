@@ -87,6 +87,13 @@ tSharedLibrary::tSharedLibrary(const std::string& library_name) :
   }
 }
 
+tSharedLibrary::tSharedLibrary(const char* library_name) :
+  name(),
+  path()
+{
+  *this = tSharedLibrary(std::string(library_name));
+}
+
 std::string tSharedLibrary::ToString(bool platform_dependent) const
 {
   if (platform_dependent)
