@@ -36,6 +36,7 @@
 #include "core/tRuntimeEnvironment.h"
 #include "core/tRuntimeSettings.h"
 #include "plugins/data_ports/tGenericPort.h"
+#include "plugins/network_transport/tNetworkTransportPlugin.h"
 #include "plugins/parameters/tConfigFile.h"
 #include "plugins/parameters/internal/tParameterInfo.h"
 #include "plugins/scheduling/tExecutionControl.h"
@@ -79,7 +80,7 @@ static rpc_ports::tRPCInterfaceType<tAdministrationService> cTYPE("Administratio
     &tAdministrationService::GetModuleLibraries, &tAdministrationService::GetParameterInfo, &tAdministrationService::IsExecuting,
     &tAdministrationService::LoadModuleLibrary, &tAdministrationService::PauseExecution, &tAdministrationService::SaveAllFinstructableFiles,
     &tAdministrationService::SaveFinstructableGroup, &tAdministrationService::SetAnnotation, &tAdministrationService::SetPortValue,
-    &tAdministrationService::StartExecution);
+    &tAdministrationService::StartExecution, &tAdministrationService::NetworkConnect); // NetworkConnect is last in order to not break binary compatibility
 
 static tAdministrationService administration_service;
 
@@ -428,6 +429,55 @@ rrlib::serialization::tMemoryBuffer tAdministrationService::LoadModuleLibrary(co
   FINROC_LOG_PRINT(USER, "Loading library ", library_name);
   DLOpen(library_name);
   return GetCreateModuleActions();
+}
+
+std::string tAdministrationService::NetworkConnect(int local_port_handle, const std::string preferred_transport,
+    const std::string& remote_runtime_uuid, int remote_port_handle, const std::string remote_port_link)
+{
+  // check local port
+  auto cVOLATILE = core::tFrameworkElement::tFlag::VOLATILE;
+  core::tAbstractPort* local_port = Runtime().GetPort(local_port_handle);
+  std::string return_message;
+  if (!local_port)
+  {
+    return_message = "Local port to be connected does not exist";
+    FINROC_LOG_PRINT(WARNING, return_message);
+    return return_message;
+  }
+  if (local_port->GetFlag(cVOLATILE))
+  {
+    return_message = "Cannot really persistently connect a volatile port: " + local_port->GetQualifiedLink();
+    FINROC_LOG_PRINT(WARNING, return_message);
+    return return_message;
+  }
+
+  // create list with order in which network transports are tried
+  std::vector<network_transport::tNetworkTransportPlugin*> transports_to_try;
+  for (auto it = network_transport::tNetworkTransportPlugin::GetAll().begin(); it != network_transport::tNetworkTransportPlugin::GetAll().end(); ++it)
+  {
+    if (preferred_transport == (*it)->GetId())
+    {
+      transports_to_try.insert(transports_to_try.begin(), *it);
+    }
+    else
+    {
+      transports_to_try.push_back(*it);
+    }
+  }
+
+  // try connecting
+  for (auto it = transports_to_try.begin(); it != transports_to_try.end(); ++it)
+  {
+    std::string result = (*it)->Connect(*local_port, remote_runtime_uuid, remote_port_handle, remote_port_link);
+    if (result.length() == 0)
+    {
+      return "";
+    }
+  }
+
+  return_message = "Could not connect local port " + local_port->GetQualifiedLink() + " to remote port " + remote_port_link + " using any available network transport plugin.";
+  FINROC_LOG_PRINT(WARNING, return_message);
+  return return_message;
 }
 
 void tAdministrationService::PauseExecution(int element_handle)

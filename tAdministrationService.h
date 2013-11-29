@@ -183,6 +183,20 @@ public:
   rrlib::serialization::tMemoryBuffer LoadModuleLibrary(const std::string& library_name);
 
   /*!
+   * Connect local port to port in remote runtime environment using one of the
+   * available network transport plugins.
+   *
+   * \param local_port_handle Handle of local port
+   * \param preferred_transport ID of preferred network transport to be used (e.g. "tcp"). If specified, it will be attempted to create the connection using this transport first.
+   * \param remote_runtime_uuid UUID of remote runtime
+   * \param remote_port_handle Handle of remote port
+   * \param remote_port_link Link of port in remote runtime environment
+   * \return Returns error message if connecting failed. On success an empty string is returned.
+   */
+  std::string NetworkConnect(int local_port_handle, const std::string preferred_transport,
+                             const std::string& remote_runtime_uuid, int remote_port_handle, const std::string remote_port_link);
+
+  /*!
    * Pauses execution of tasks in specified framework element
    * (possibly its parent thread container - if there is no such, then all children)
    *
