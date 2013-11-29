@@ -471,6 +471,7 @@ std::string tAdministrationService::NetworkConnect(int local_port_handle, const 
     std::string result = (*it)->Connect(*local_port, remote_runtime_uuid, remote_port_handle, remote_port_link);
     if (result.length() == 0)
     {
+      FINROC_LOG_PRINT(USER, "Connected local port '", local_port->GetQualifiedLink(), "' to remote port '", remote_port_link, "' via ", (*it)->GetId());
       return "";
     }
   }
