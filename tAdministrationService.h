@@ -193,8 +193,8 @@ public:
    * \param remote_port_link Link of port in remote runtime environment
    * \return Returns error message if connecting failed. On success an empty string is returned.
    */
-  std::string NetworkConnect(int local_port_handle, const std::string preferred_transport,
-                             const std::string& remote_runtime_uuid, int remote_port_handle, const std::string remote_port_link);
+  std::string NetworkConnect(int local_port_handle, const std::string& preferred_transport,
+                             const std::string& remote_runtime_uuid, int remote_port_handle, const std::string& remote_port_link);
 
   /*!
    * Pauses execution of tasks in specified framework element

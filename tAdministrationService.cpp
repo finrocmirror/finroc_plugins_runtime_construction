@@ -431,8 +431,8 @@ rrlib::serialization::tMemoryBuffer tAdministrationService::LoadModuleLibrary(co
   return GetCreateModuleActions();
 }
 
-std::string tAdministrationService::NetworkConnect(int local_port_handle, const std::string preferred_transport,
-    const std::string& remote_runtime_uuid, int remote_port_handle, const std::string remote_port_link)
+std::string tAdministrationService::NetworkConnect(int local_port_handle, const std::string& preferred_transport,
+    const std::string& remote_runtime_uuid, int remote_port_handle, const std::string& remote_port_link)
 {
   // check local port
   auto cVOLATILE = core::tFrameworkElement::tFlag::VOLATILE;
