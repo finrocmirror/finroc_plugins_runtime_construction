@@ -221,6 +221,10 @@ int main(int argc, char **argv)
     it->thread_container = new tThreadContainer(&tRuntimeEnvironment::GetInstance(), it->main_name, it->file_name, true,
         make_all_port_links_unique ? tFrameworkElementFlags(tFrameworkElementFlag::GLOBALLY_UNIQUE_LINK) : tFrameworkElementFlags());
     it->thread_container->SetMainName(it->main_name);
+    if (it == finroc_files.begin())
+    {
+      it->thread_container->InitiallyShowInTools(); // show the first thread container in tools
+    }
   }
 
   std::vector<std::string> remaining_arguments = rrlib::getopt::ProcessCommandLine(argc, argv, cPROGRAM_DESCRIPTION, cCOMMAND_LINE_ARGUMENTS, cADDITIONAL_HELP_TEXT);
