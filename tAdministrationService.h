@@ -191,10 +191,11 @@ public:
    * \param remote_runtime_uuid UUID of remote runtime
    * \param remote_port_handle Handle of remote port
    * \param remote_port_link Link of port in remote runtime environment
+   * \param disconnect If 'false' the ports are connected - if 'true' the ports are disconnected
    * \return Returns error message if connecting failed. On success an empty string is returned.
    */
-  std::string NetworkConnect(int local_port_handle, const std::string& preferred_transport,
-                             const std::string& remote_runtime_uuid, int remote_port_handle, const std::string& remote_port_link);
+  std::string NetworkConnect(int local_port_handle, const std::string& preferred_transport, const std::string& remote_runtime_uuid,
+                             int remote_port_handle, const std::string& remote_port_link, bool disconnect);
 
   /*!
    * Pauses execution of tasks in specified framework element

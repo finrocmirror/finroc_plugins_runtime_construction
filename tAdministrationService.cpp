@@ -432,7 +432,7 @@ rrlib::serialization::tMemoryBuffer tAdministrationService::LoadModuleLibrary(co
 }
 
 std::string tAdministrationService::NetworkConnect(int local_port_handle, const std::string& preferred_transport,
-    const std::string& remote_runtime_uuid, int remote_port_handle, const std::string& remote_port_link)
+    const std::string& remote_runtime_uuid, int remote_port_handle, const std::string& remote_port_link, bool disconnect)
 {
   // check local port
   auto cVOLATILE = core::tFrameworkElement::tFlag::VOLATILE;
@@ -440,11 +440,11 @@ std::string tAdministrationService::NetworkConnect(int local_port_handle, const 
   std::string return_message;
   if (!local_port)
   {
-    return_message = "Local port to be connected does not exist";
+    return_message = disconnect ? "Local port to be disconnected does not exist" : "Local port to be connected does not exist";
     FINROC_LOG_PRINT(WARNING, return_message);
     return return_message;
   }
-  if (local_port->GetFlag(cVOLATILE))
+  if ((!disconnect) && local_port->GetFlag(cVOLATILE))
   {
     return_message = "Cannot really persistently connect a volatile port: " + local_port->GetQualifiedLink();
     FINROC_LOG_PRINT(WARNING, return_message);
@@ -463,6 +463,16 @@ std::string tAdministrationService::NetworkConnect(int local_port_handle, const 
     {
       transports_to_try.push_back(*it);
     }
+  }
+
+  if (disconnect)
+  {
+    // try disconnecting with all available transport plugins
+    for (auto it = transports_to_try.begin(); it != transports_to_try.end(); ++it)
+    {
+      (*it)->Disconnect(*local_port, remote_runtime_uuid, remote_port_handle, remote_port_link);
+    }
+    return "";
   }
 
   // try connecting
