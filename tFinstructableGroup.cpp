@@ -660,7 +660,7 @@ std::vector<std::string> tFinstructableGroup::ScanForCommandLineArgs(const std::
       FINROC_LOG_PRINT_STATIC(DEBUG, "Scanning for command line options in ", finroc_file);
       rrlib::xml::tNode& root = doc.RootNode();
       ScanForCommandLineArgsHelper(result, root);
-      FINROC_LOG_PRINTF_STATIC(DEBUG, "Scanning successful. Found %d additional options.", result.size());
+      FINROC_LOG_PRINTF_STATIC(DEBUG, "Scanning successful. Found %zu additional options.", result.size());
     }
     catch (std::exception& e)
     {
