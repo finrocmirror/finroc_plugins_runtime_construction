@@ -81,7 +81,7 @@ class tRuntimeConstructionPlugin : public core::tPlugin
 public:
   tRuntimeConstructionPlugin() {}
 
-  virtual void Init() // TODO mark override with gcc 4.7
+  virtual void Init() override
   {
     tFinstructableGroup::StaticInit();
 

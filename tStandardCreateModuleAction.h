@@ -86,24 +86,23 @@ public:
     group = GetBinary((void*)CreateModuleImplementation);
   }
 
-  // TODO: mark virtual functions with override when we have gcc 4.7
 
-  virtual core::tFrameworkElement* CreateModule(core::tFrameworkElement* parent, const std::string& name, tConstructorParameters* params) const
+  virtual core::tFrameworkElement* CreateModule(core::tFrameworkElement* parent, const std::string& name, tConstructorParameters* params) const override
   {
     return CreateModuleImplementation(parent, name);
   }
 
-  virtual tSharedLibrary GetModuleGroup() const
+  virtual tSharedLibrary GetModuleGroup() const override
   {
     return group;
   }
 
-  virtual std::string GetName() const
+  virtual std::string GetName() const override
   {
     return type_name;
   }
 
-  virtual const tConstructorParameters* GetParameterTypes() const
+  virtual const tConstructorParameters* GetParameterTypes() const override
   {
     return NULL;
   }

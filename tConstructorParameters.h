@@ -84,7 +84,7 @@ public:
     tParameter<T> p(this, args...);
   }
 
-  virtual std::string GetLogDescription() const;
+  std::string GetLogDescription() const;
 
   template <typename T>
   T GetParameter(size_t index)

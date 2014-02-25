@@ -152,8 +152,8 @@ public:
 //----------------------------------------------------------------------
 protected:
 
-  virtual void OnStaticParameterChange(); // TODO mark override with gcc 4.7
-  virtual void PostChildInit(); // TODO mark override with gcc 4.7
+  virtual void OnStaticParameterChange() override;
+  virtual void PostChildInit() override;
 
 //----------------------------------------------------------------------
 // Private fields and methods
