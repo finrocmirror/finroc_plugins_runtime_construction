@@ -38,7 +38,6 @@
 #include "core/tRuntimeEnvironment.h"
 #include "core/internal/tLinkEdge.h"
 #include "plugins/parameters/internal/tParameterInfo.h"
-#include <boost/algorithm/string.hpp>
 
 //----------------------------------------------------------------------
 // Internal includes with ""
@@ -154,7 +153,7 @@ core::tAbstractPort* tFinstructableGroup::GetChildPort(const std::string& link)
 
 std::string tFinstructableGroup::GetEdgeLink(const std::string& target_link, const std::string& this_group_link)
 {
-  if (boost::starts_with(target_link, this_group_link))
+  if (target_link.compare(0, this_group_link.length(), this_group_link) == 0)
   {
     return target_link.substr(this_group_link.length());
   }
@@ -202,13 +201,13 @@ void tFinstructableGroup::Instantiate(const rrlib::xml::tNode& node, tFrameworkE
     const rrlib::xml::tNode* parameters = NULL;
     const rrlib::xml::tNode* constructor_params = NULL;
     std::string p_name = child_node->Name();
-    if (boost::equals(p_name, "constructor"))
+    if (p_name == "constructor")
     {
       constructor_params = &(*child_node);
       ++child_node;
       p_name = child_node->Name();
     }
-    if (boost::equals(p_name, "parameters"))
+    if (p_name == "parameters")
     {
       parameters = &(*child_node);
       ++child_node;
@@ -234,7 +233,7 @@ void tFinstructableGroup::Instantiate(const rrlib::xml::tNode& node, tFrameworkE
     for (; child_node != node.ChildrenEnd(); ++child_node)
     {
       std::string name2 = child_node->Name();
-      if (boost::equals(name2, "element"))
+      if (name2 == "element")
       {
         Instantiate(*child_node, created);
       }
@@ -281,10 +280,21 @@ void tFinstructableGroup::LoadXml(const std::string& xml_file_)
       if (root.HasAttribute("dependencies"))
       {
         std::vector<std::string> deps;
-        boost::split(deps, root.GetStringAttribute("dependencies"), boost::is_any_of(","));
-        for (size_t i = 0; i < deps.size(); i++)
+        std::stringstream stream(root.GetStringAttribute("dependencies"));
+        std::string dependency;
+        while (std::getline(stream, dependency, ','))
         {
-          tSharedLibrary dep = boost::trim_copy(deps[i]);
+          // trim string
+          while (dependency.length() > 0 && isspace(dependency.front()))
+          {
+            dependency = dependency.substr(1);
+          }
+          while (dependency.length() > 0 && isspace(dependency.back()))
+          {
+            dependency.erase(dependency.length() - 1);
+          }
+
+          tSharedLibrary dep(dependency);
           std::vector<tSharedLibrary> loadable = GetLoadableFinrocLibraries();
           bool loaded = false;
           for (size_t i = 0; i < loadable.size(); i++)
@@ -310,12 +320,12 @@ void tFinstructableGroup::LoadXml(const std::string& xml_file_)
       for (rrlib::xml::tNode::const_iterator node = root.ChildrenBegin(); node != root.ChildrenEnd(); ++node)
       {
         std::string name = node->Name();
-        if (boost::equals(name, "staticparameter"))
+        if (name == "staticparameter")
         {
           parameters::internal::tStaticParameterList& spl = parameters::internal::tStaticParameterList::GetOrCreate(*this);
           spl.Add(*new parameters::internal::tStaticParameterImplementationBase(node->GetStringAttribute("name"), rrlib::rtti::tType(), false, true));
         }
-        else if (boost::equals(name, "interface"))
+        else if (name == "interface")
         {
           tEditableInterfaces* editable_interfaces = this->GetAnnotation<tEditableInterfaces>();
           if (editable_interfaces)
@@ -334,11 +344,11 @@ void tFinstructableGroup::LoadXml(const std::string& xml_file_)
             FINROC_LOG_PRINT(WARNING, "Cannot load interface, because finstructable group does not have any editable interfaces.");
           }
         }
-        else if (boost::equals(name, "element"))
+        else if (name == "element")
         {
           Instantiate(*node, this);
         }
-        else if (boost::equals(name, "edge"))
+        else if (name == "edge")
         {
           std::string src = node->GetStringAttribute("src");
           std::string dest = node->GetStringAttribute("dest");
@@ -361,7 +371,7 @@ void tFinstructableGroup::LoadXml(const std::string& xml_file_)
             src_port->ConnectTo(*dest_port, core::tAbstractPort::tConnectDirection::AUTO, true);
           }
         }
-        else if (boost::equals(name, "parameter"))
+        else if (name == "parameter")
         {
           std::string param = node->GetStringAttribute("link");
           core::tAbstractPort* parameter = GetChildPort(param);
@@ -464,7 +474,8 @@ void tFinstructableGroup::SaveXml()
     std::string save_to = core::GetFinrocFileToSaveTo(GetXmlFileString());
     if (save_to.length() == 0)
     {
-      std::string save_to_alt = core::GetFinrocFileToSaveTo(boost::replace_all_copy(GetXmlFileString(), "/", "_"));
+      std::string save_to_alt = GetXmlFileString();
+      std::replace(save_to_alt.begin(), save_to_alt.end(), '/', '_');
       FINROC_LOG_PRINT(USER, "There does not seem to be any suitable location for: '", GetXmlFileString(), "' . For now, using '", save_to_alt, "'.");
       save_to = save_to_alt;
     }
@@ -677,7 +688,7 @@ void tFinstructableGroup::ScanForCommandLineArgsHelper(std::vector<std::string>&
   for (rrlib::xml::tNode::const_iterator node = parent.ChildrenBegin(); node != parent.ChildrenEnd(); ++node)
   {
     std::string name(node->Name());
-    if (node->HasAttribute("cmdline") && (boost::equals(name, "staticparameter") || boost::equals(name, "parameter")))
+    if (node->HasAttribute("cmdline") && (name == "staticparameter" || name == "parameter"))
     {
       result.push_back(node->GetStringAttribute("cmdline"));
     }

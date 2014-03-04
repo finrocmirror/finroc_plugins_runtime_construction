@@ -11,7 +11,7 @@
     </sources>
   </finrocplugin>
 
-  <finrocplugin libs="boost_filesystem">
+  <finrocplugin>
     <sources>
       dynamic_loading.cpp
       tAdministrationService.cpp

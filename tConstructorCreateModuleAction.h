@@ -39,8 +39,6 @@
 //----------------------------------------------------------------------
 // External includes (system with <>, local with "")
 //----------------------------------------------------------------------
-#include <boost/lexical_cast.hpp>
-#include <boost/algorithm/string.hpp>
 
 //----------------------------------------------------------------------
 // Internal includes with ""
@@ -135,16 +133,26 @@ public:
     constructor_parameters()
   {
     // Create vector with parameter names
-    std::vector<std::string> names_temp;
-    boost::split(names_temp, parameter_names, boost::is_any_of(","));
     std::vector<std::string> names;
-    for (size_t i = 0; i < names_temp.size(); i++)
+    std::stringstream stream(parameter_names);
+    std::string parameter_name;
+    while (std::getline(stream, parameter_name, ','))
     {
-      names.push_back(boost::trim_copy(names_temp[i]));
+      // trim string
+      while (parameter_name.length() > 0 && isspace(parameter_name.front()))
+      {
+        parameter_name = parameter_name.substr(1);
+      }
+      while (parameter_name.length() > 0 && isspace(parameter_name.back()))
+      {
+        parameter_name.erase(parameter_name.length() - 1);
+      }
+      names.push_back(parameter_name);
     }
+
     while (names.size() < std::tuple_size<tArgsTuple>::value)
     {
-      names.push_back("Parameter " + boost::lexical_cast<std::string>(names.size()));
+      names.push_back("Parameter " + std::to_string(names.size()));
     }
 
     internal::tParameterCreator<TArgs...>::CreateParameter(names, 0, constructor_parameters);

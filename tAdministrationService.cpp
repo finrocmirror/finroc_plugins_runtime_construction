@@ -32,7 +32,6 @@
 //----------------------------------------------------------------------
 // External includes (system with <>, local with "")
 //----------------------------------------------------------------------
-#include <boost/lexical_cast.hpp>
 #include "core/tRuntimeEnvironment.h"
 #include "core/tRuntimeSettings.h"
 #include "plugins/data_ports/tGenericPort.h"
@@ -622,7 +621,7 @@ std::string tAdministrationService::SetPortValue(int port_handle, const rrlib::s
       return error_message;
     }
   }
-  error_message = "Port with handle " + boost::lexical_cast<std::string>(port_handle) + " is not available.";
+  error_message = "Port with handle " + std::to_string(port_handle) + " is not available.";
   FINROC_LOG_PRINT(WARNING, "Setting value of port failed: ", error_message);
   return error_message;
 }

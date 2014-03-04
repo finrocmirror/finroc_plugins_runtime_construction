@@ -34,7 +34,8 @@
 //----------------------------------------------------------------------
 #include <fstream>
 #include <dlfcn.h>
-#include <boost/filesystem.hpp>
+#include <dirent.h>
+#include <unistd.h>
 #include "core/tPlugin.h"
 #include "core/tRuntimeEnvironment.h"
 
@@ -162,21 +163,19 @@ std::set<tSharedLibrary> GetAvailableFinrocLibraries()
   std::set<tSharedLibrary> result;
   for (size_t i = 0; i < paths.size(); i++)
   {
-    std::string path = paths[i];
-    if (boost::filesystem::exists(path))
+    // platform-specific code
+    DIR* dir = opendir(paths[i].c_str());
+    if (dir != NULL)
     {
-      boost::filesystem::directory_iterator end;
-      for (boost::filesystem::directory_iterator it(path); it != end; ++it)
+      while (dirent* dir_entry = readdir(dir))
       {
-        if (!boost::filesystem::is_directory(it->status()))
+        std::string file(dir_entry->d_name);
+        if ((file.substr(0, 10).compare("libfinroc_") == 0 || file.substr(0, 9).compare("librrlib_") == 0) && file.substr(file.length() - 3, 3).compare(".so") == 0)
         {
-          std::string file(it->path().filename().c_str());
-          if ((file.substr(0, 10).compare("libfinroc_") == 0 || file.substr(0, 9).compare("librrlib_") == 0) && file.substr(file.length() - 3, 3).compare(".so") == 0)
-          {
-            result.insert(file);
-          }
+          result.insert(file);
         }
       }
+      closedir(dir);
     }
   }
   return result;
