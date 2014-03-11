@@ -33,6 +33,7 @@
 // External includes (system with <>, local with "")
 //----------------------------------------------------------------------
 #include <set>
+#include "rrlib/util/string.h"
 #include "core/file_lookup.h"
 #include "core/tFrameworkElementTags.h"
 #include "core/tRuntimeEnvironment.h"
@@ -284,16 +285,7 @@ void tFinstructableGroup::LoadXml(const std::string& xml_file_)
         std::string dependency;
         while (std::getline(stream, dependency, ','))
         {
-          // trim string
-          while (dependency.length() > 0 && isspace(dependency.front()))
-          {
-            dependency = dependency.substr(1);
-          }
-          while (dependency.length() > 0 && isspace(dependency.back()))
-          {
-            dependency.erase(dependency.length() - 1);
-          }
-
+          rrlib::util::TrimWhitespace(dependency);
           tSharedLibrary dep(dependency);
           std::vector<tSharedLibrary> loadable = GetLoadableFinrocLibraries();
           bool loaded = false;

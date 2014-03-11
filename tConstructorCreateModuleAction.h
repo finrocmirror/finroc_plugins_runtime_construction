@@ -39,6 +39,7 @@
 //----------------------------------------------------------------------
 // External includes (system with <>, local with "")
 //----------------------------------------------------------------------
+#include "rrlib/util/string.h"
 
 //----------------------------------------------------------------------
 // Internal includes with ""
@@ -138,15 +139,7 @@ public:
     std::string parameter_name;
     while (std::getline(stream, parameter_name, ','))
     {
-      // trim string
-      while (parameter_name.length() > 0 && isspace(parameter_name.front()))
-      {
-        parameter_name = parameter_name.substr(1);
-      }
-      while (parameter_name.length() > 0 && isspace(parameter_name.back()))
-      {
-        parameter_name.erase(parameter_name.length() - 1);
-      }
+      rrlib::util::TrimWhitespace(parameter_name);
       names.push_back(parameter_name);
     }
 
