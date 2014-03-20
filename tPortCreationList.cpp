@@ -37,7 +37,7 @@
 //----------------------------------------------------------------------
 // Internal includes with ""
 //----------------------------------------------------------------------
-#include "plugins/runtime_construction/tFinstructableGroup.h"
+#include "plugins/runtime_construction/tFinstructable.h"
 
 //----------------------------------------------------------------------
 // Debugging
@@ -346,7 +346,7 @@ rrlib::xml::tNode& operator << (rrlib::xml::tNode& node, const tPortCreationList
     rrlib::xml::tNode& child = node.AddChildNode("port");
     child.SetAttribute("name", p->GetName());
     child.SetAttribute("type", p->GetDataType().GetName());
-    tFinstructableGroup::AddDependency(p->GetDataType());
+    tFinstructable::AddDependency(p->GetDataType());
     if (list.selectable_create_options.Get(tPortCreateOption::OUTPUT))
     {
       child.SetAttribute("output", p->IsOutputPort());

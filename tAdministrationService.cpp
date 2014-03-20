@@ -44,7 +44,7 @@
 // Internal includes with ""
 //----------------------------------------------------------------------
 #include "plugins/runtime_construction/tCreateFrameworkElementAction.h"
-#include "plugins/runtime_construction/tFinstructableGroup.h"
+#include "plugins/runtime_construction/tFinstructable.h"
 #include "plugins/runtime_construction/dynamic_loading.h"
 
 //----------------------------------------------------------------------
@@ -215,7 +215,7 @@ std::string tAdministrationService::CreateModule(uint32_t create_action_index, c
           }
         }
         core::tFrameworkElement* created = create_action->CreateModule(parent, module_name, parameters.get());
-        tFinstructableGroup::SetFinstructed(*created, create_action, parameters.get());
+        tFinstructable::SetFinstructed(*created, create_action, parameters.get());
         created->Init();
         parameters.release();
         FINROC_LOG_PRINT(USER, "Creating Module succeeded");
@@ -517,7 +517,14 @@ void tAdministrationService::SaveAllFinstructableFiles()
     {
       try
       {
-        (static_cast<tFinstructableGroup&>(*it)).SaveXml();
+        if (it->GetAnnotation<tFinstructable>())
+        {
+          it->GetAnnotation<tFinstructable>()->SaveXml();
+        }
+        else
+        {
+          FINROC_LOG_PRINT(ERROR, "Element invalidly flagged as finstructable: ", it->GetQualifiedLink());
+        }
       }
       catch (const std::exception& e)
       {
@@ -536,7 +543,14 @@ void tAdministrationService::SaveFinstructableGroup(int group_handle)
   {
     try
     {
-      (static_cast<tFinstructableGroup*>(group))->SaveXml();
+      if (group->GetAnnotation<tFinstructable>())
+      {
+        group->GetAnnotation<tFinstructable>()->SaveXml();
+      }
+      else
+      {
+        FINROC_LOG_PRINT(ERROR, "Element invalidly flagged as finstructable: ", group->GetQualifiedLink());
+      }
     }
     catch (const std::exception& e)
     {

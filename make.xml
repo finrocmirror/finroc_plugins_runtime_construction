@@ -17,6 +17,7 @@
       tAdministrationService.cpp
       tDataTypeReference.cpp
       tEditableInterfaces.cpp
+      tFinstructable.cpp
       tFinstructableGroup.cpp
       tGroup.cpp
       tGroupInterface.cpp

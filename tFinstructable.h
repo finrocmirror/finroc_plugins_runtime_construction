@@ -19,37 +19,39 @@
 // 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 //
 //----------------------------------------------------------------------
-/*!\file    plugins/runtime_construction/tFinstructableGroup.h
+/*!\file    plugins/runtime_construction/tFinstructable.h
  *
  * \author  Max Reichardt
  *
  * \date    2012-12-02
  *
- * \brief   Contains tFinstructableGroup
+ * \brief   Contains tFinstructable
  *
- * \b tFinstructableGroup
+ * \b tFinstructable
  *
- * The contents of FinstructableGroups can be edited using Finstruct.
+ * The contents of Finstructable framework elements can be edited using
+ * Finstruct.
  *
- * They get an XML file and optionally an attribute tree in the constructor.
- * The contents of the group are determined entirely by the contents of the
+ * They get a reference to an XML file in the constructor.
+ * The contents of a finstructable are determined by the contents of the
  * XML file.
  * Changes made using finstruct can be saved back to this XML file.
+ *
+ * Finstructable can be added as an annotation to any framework element.
  */
 //----------------------------------------------------------------------
-#ifndef __plugins__runtime_construction__tFinstructableGroup_h__
-#define __plugins__runtime_construction__tFinstructableGroup_h__
+#ifndef __plugins__runtime_construction__tFinstructable_h__
+#define __plugins__runtime_construction__tFinstructable_h__
 
 //----------------------------------------------------------------------
 // External includes (system with <>, local with "")
 //----------------------------------------------------------------------
 #include "core/port/tAbstractPort.h"
-#include "plugins/parameters/tStaticParameter.h"
 
 //----------------------------------------------------------------------
 // Internal includes with ""
 //----------------------------------------------------------------------
-#include "plugins/runtime_construction/tStandardCreateModuleAction.h"
+#include "plugins/runtime_construction/tCreateFrameworkElementAction.h"
 
 //----------------------------------------------------------------------
 // Namespace declaration
@@ -72,14 +74,17 @@ class tRuntimeConstructionPlugin;
 //----------------------------------------------------------------------
 //! Group whose contents can be constructed/edited using finstruct.
 /*!
- * The contents of FinstructableGroups can be edited using Finstruct.
+ * The contents of Finstructable framework elements can be edited using
+ * Finstruct.
  *
- * They get an XML file and optionally an attribute tree in the constructor.
- * The contents of the group are determined entirely by the contents of the
+ * They get a reference to an XML file in the constructor.
+ * The contents of a finstructable are determined by the contents of the
  * XML file.
  * Changes made using finstruct can be saved back to this XML file.
+ *
+ * Finstructable can be added as an annotation to any framework element.
  */
-class tFinstructableGroup : public core::tFrameworkElement
+class tFinstructable : public core::tAnnotation
 {
 
 //----------------------------------------------------------------------
@@ -88,21 +93,13 @@ class tFinstructableGroup : public core::tFrameworkElement
 public:
 
   /*!
-   * Contains name of XML file to use
-   * Parameter only exists if no (fixed) XML file was provided via constructor
-   */
-  std::unique_ptr<parameters::tStaticParameter<std::string>> xml_file;
-
-
-  tFinstructableGroup(tFrameworkElement* parent, const std::string& name, tFlags flags = tFlags());
-
-  /*!
    * (if the provided file does not exist, it is created, when contents are saved - and a warning is displayed)
    * (if the provided file exists, its contents are loaded when group is initialized)
+   * (if the provided file name is empty, nothing is loaded or saved)
    *
-   * \param xml_file Name of fixed XML file (relative to finroc repository) that determines contents of this group
+   * \param xml_file Reference to name of xml file that determines contents of this group
    */
-  tFinstructableGroup(tFrameworkElement* parent, const std::string& name, const std::string& xml_file, tFlags flags = tFlags());
+  tFinstructable(const std::string& xml_file);
 
   /*!
    * Helper method to collect data types that need to be loaded before the contents of
@@ -112,6 +109,16 @@ public:
    * \param dt Data type required to instantiate this .xml
    */
   static void AddDependency(const rrlib::rtti::tType& dt);
+
+  /*! for rrlib_logging */
+  std::string GetLogDescription() const;
+
+  /*!
+   * Loads and instantiates contents of xml file
+   *
+   * \param xml_file xml file to load
+   */
+  void LoadXml();
 
   /*!
    * Save contents of group back to Xml file
@@ -137,7 +144,7 @@ public:
    * \param create_action Action with which framework element was created
    * \param params Parameters that module was created with (may be null)
    */
-  static void SetFinstructed(tFrameworkElement& fe, tCreateFrameworkElementAction* create_action, tConstructorParameters* params);
+  static void SetFinstructed(core::tFrameworkElement& fe, tCreateFrameworkElementAction* create_action, tConstructorParameters* params);
 
   /*!
    * \param main_name Default name when group is main part
@@ -146,14 +153,6 @@ public:
   {
     this->main_name = main_name;
   }
-
-//----------------------------------------------------------------------
-// Protected methods
-//----------------------------------------------------------------------
-protected:
-
-  virtual void OnStaticParameterChange() override;
-  virtual void PostChildInit() override;
 
 //----------------------------------------------------------------------
 // Private fields and methods
@@ -165,8 +164,11 @@ private:
   /*! Default name when group is main part */
   std::string main_name;
 
-  /*! This string contains xml file to load - if fixed string was specified in constructor */
-  const std::string fixed_xml_name;
+  /*! Reference to string that contains xml file name to load and save */
+  const std::string& xml_file;
+
+
+  virtual void AnnotatedObjectInitialized() override;
 
   /*!
    * Helper method to collect .so files that need to be loaded before the contents of
@@ -198,6 +200,14 @@ private:
   std::string GetEdgeLink(core::tAbstractPort& ap, const std::string& this_group_link);
 
   /*!
+   * \return Root framework element that this annotation belongs to
+   */
+  core::tFrameworkElement* GetFrameworkElement() const
+  {
+    return this->GetAnnotated<core::tFrameworkElement>();
+  }
+
+  /*!
    * \return Returns raw xml name to use for loading and saving (either fixed string or from static parameter)
    */
   std::string GetXmlFileString();
@@ -208,7 +218,7 @@ private:
    * \param node xml node that contains data for instantiation
    * \param parent Parent element
    */
-  void Instantiate(const rrlib::xml::tNode& node, tFrameworkElement* parent);
+  void Instantiate(const rrlib::xml::tNode& node, core::tFrameworkElement* parent);
 
   /*!
    * Is this finstructable group the one responsible for saving parameter's config entry?
@@ -216,14 +226,7 @@ private:
    * \param ap Framework element to check this for (usually parameter port)
    * \return Answer.
    */
-  bool IsResponsibleForConfigFileConnections(tFrameworkElement& ap) const;
-
-  /*!
-   * Loads and instantiates contents of xml file
-   *
-   * \param xml_file xml file to load
-   */
-  void LoadXml(const std::string& xml_file_);
+  bool IsResponsibleForConfigFileConnections(core::tFrameworkElement& ap) const;
 
   /*!
    * Log exception (convenience method)
@@ -247,7 +250,7 @@ private:
    * \param node XML node to serialize to
    * \param current Framework element
    */
-  void SerializeChildren(rrlib::xml::tNode& node, tFrameworkElement& current);
+  void SerializeChildren(rrlib::xml::tNode& node, core::tFrameworkElement& current);
 
   /*!
    * Recursive helper function for ScanForCommandLineArgs

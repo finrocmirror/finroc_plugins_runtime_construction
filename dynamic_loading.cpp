@@ -42,7 +42,7 @@
 //----------------------------------------------------------------------
 // Internal includes with ""
 //----------------------------------------------------------------------
-#include "plugins/runtime_construction/tFinstructableGroup.h"
+#include "plugins/runtime_construction/tFinstructable.h"
 #include "plugins/runtime_construction/tAdministrationService.h"
 
 //----------------------------------------------------------------------
@@ -84,7 +84,7 @@ public:
 
   virtual void Init() override
   {
-    tFinstructableGroup::StaticInit();
+    tFinstructable::StaticInit();
 
     /*! Port that receives administration requests */
     tAdministrationService::CreateAdministrationPort();

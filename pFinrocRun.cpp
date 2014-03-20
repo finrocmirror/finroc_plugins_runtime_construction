@@ -37,17 +37,17 @@
 // External includes (system with <>, local with "")
 //----------------------------------------------------------------------
 #include <chrono>
-#include "core/file_lookup.h"
-#include "core/tRuntimeEnvironment.h"
-
 #include "rrlib/getopt/parser.h"
 #include "rrlib/logging/configuration.h"
+#include "core/file_lookup.h"
+#include "core/tRuntimeEnvironment.h"
+#include "plugins/structure/main_utilities.h"
+#include "plugins/structure/tThreadContainer.h"
 
 //----------------------------------------------------------------------
 // Internal includes with ""
 //----------------------------------------------------------------------
-#include "plugins/structure/main_utilities.h"
-#include "plugins/structure/tThreadContainer.h"
+#include "plugins/runtime_construction/tFinstructable.h"
 
 //----------------------------------------------------------------------
 // Debugging
@@ -202,7 +202,7 @@ int main(int argc, char **argv)
       finroc_files.push_back(tFinrocFile(argument));
 
       // Scan for additional command line arguments (possibly specified in .finroc file)
-      finroc_file_extra_args = finroc::runtime_construction::tFinstructableGroup::ScanForCommandLineArgs(finroc_files.back().file_name);
+      finroc_file_extra_args = finroc::runtime_construction::tFinstructable::ScanForCommandLineArgs(finroc_files.back().file_name);
       for (size_t i = 0; i < finroc_file_extra_args.size(); i++)
       {
         rrlib::getopt::AddValue(finroc_file_extra_args[i].c_str(), 0, "", &FinrocFileArgHandler);
@@ -220,7 +220,7 @@ int main(int argc, char **argv)
   {
     it->thread_container = new tThreadContainer(&tRuntimeEnvironment::GetInstance(), it->main_name, it->file_name, true,
         make_all_port_links_unique ? tFrameworkElementFlags(tFrameworkElementFlag::GLOBALLY_UNIQUE_LINK) : tFrameworkElementFlags());
-    it->thread_container->SetMainName(it->main_name);
+    it->thread_container->GetAnnotation<finroc::runtime_construction::tFinstructable>()->SetMainName(it->main_name);
     if (it == finroc_files.begin())
     {
       it->thread_container->InitiallyShowInTools(); // show the first thread container in tools

@@ -27,24 +27,18 @@
  *
  */
 //----------------------------------------------------------------------
-#include "plugins/runtime_construction/tFinstructableGroup.h"
 
 //----------------------------------------------------------------------
 // External includes (system with <>, local with "")
 //----------------------------------------------------------------------
-#include <set>
-#include "rrlib/util/string.h"
-#include "core/file_lookup.h"
 #include "core/tFrameworkElementTags.h"
-#include "core/tRuntimeEnvironment.h"
-#include "core/internal/tLinkEdge.h"
-#include "plugins/parameters/internal/tParameterInfo.h"
+#include "core/file_lookup.h"
 
 //----------------------------------------------------------------------
 // Internal includes with ""
 //----------------------------------------------------------------------
-#include "plugins/runtime_construction/tEditableInterfaces.h"
-#include "plugins/runtime_construction/dynamic_loading.h"
+#include "plugins/runtime_construction/tStandardCreateModuleAction.h"
+#include "plugins/runtime_construction/tFinstructable.h"
 
 //----------------------------------------------------------------------
 // Debugging
@@ -75,675 +69,77 @@ namespace runtime_construction
 // Implementation
 //----------------------------------------------------------------------
 
-tStandardCreateModuleAction<tFinstructableGroup> cCREATE_ACTION_FOR_T_FINSTRUCTABLE_GROUP("Finstructable Group");
-
-/*! Thread currently saving finstructable group */
-static rrlib::thread::tThread* saving_thread = NULL;
-
-/*! Temporary variable for saving: .so files that should be loaded prior to instantiating this group */
-static std::set<tSharedLibrary> dependencies_tmp;
-
-/*! Number of types at startup */
-static int startup_type_count = 0;
-
-/*! Loaded finroc libraries at startup */
-static std::set<tSharedLibrary> startup_loaded_finroc_libs;
-
-/*! We do not want to have this prefix in XML file names, as this will not be found when a system installation is used */
-static const char* cUNWANTED_XML_FILE_PREFIX = "sources/cpp/";
-
-tFinstructableGroup::tFinstructableGroup(tFrameworkElement* parent, const std::string& name, tFlags flags) :
-  tFrameworkElement(parent, name, flags | tFlag::FINSTRUCTABLE_GROUP, -1),
-  xml_file(new parameters::tStaticParameter<std::string>("XML file", this, "")),
-  main_name(),
-  fixed_xml_name()
+//----------------------------------------------------------------------
+// Class declaration
+//----------------------------------------------------------------------
+//! Group whose contents can be constructed/edited using finstruct.
+/*!
+ * (This class only exists for backward-compatibility - as some .xml files
+ *  referencing FinstructableGroups exists)
+ *
+ * The contents of FinstructableGroups can be edited using Finstruct.
+ *
+ * The contents of the group are determined entirely by the contents of an
+ * XML file.
+ * Changes made using finstruct can be saved back to this XML file.
+ */
+class tFinstructableGroup : public core::tFrameworkElement
 {
-  core::tFrameworkElementTags::AddTag(*this, "group");
-}
 
-tFinstructableGroup::tFinstructableGroup(tFrameworkElement* parent, const std::string& name, const std::string& xml_file, tFlags flags) :
-  tFrameworkElement(parent, name, flags | tFlag::FINSTRUCTABLE_GROUP, -1),
-  xml_file(xml_file.length() > 0 ? NULL : new parameters::tStaticParameter<std::string>("XML file", this, "")),
-  main_name(),
-  fixed_xml_name(xml_file.find(cUNWANTED_XML_FILE_PREFIX) == 0 ? xml_file.substr(strlen(cUNWANTED_XML_FILE_PREFIX)) : xml_file)
-{
-  core::tFrameworkElementTags::AddTag(*this, "group");
-  if (fixed_xml_name.length() > 0)
+//----------------------------------------------------------------------
+// Public methods and typedefs
+//----------------------------------------------------------------------
+public:
+
+  /*!
+   * Contains name of XML file to use
+   * Parameter only exists if no (fixed) XML file was provided via constructor
+   */
+  parameters::tStaticParameter<std::string> xml_file;
+
+
+  tFinstructableGroup(tFrameworkElement* parent, const std::string& name, tFlags flags = tFlags()) :
+    tFrameworkElement(parent, name, flags | tFlag::FINSTRUCTABLE_GROUP),
+    xml_file("XML file", this, ""),
+    xml_filename()
   {
-    core::tFrameworkElementTags::AddTag(*this, "finstructable structure file: " + fixed_xml_name);
+    core::tFrameworkElementTags::AddTag(*this, "group");
+    this->EmplaceAnnotation<tFinstructable>(xml_filename);
   }
-}
 
-void tFinstructableGroup::AddDependency(const tSharedLibrary& dependency)
-{
-  if (&rrlib::thread::tThread::CurrentThread() == saving_thread && startup_loaded_finroc_libs.find(dependency) == startup_loaded_finroc_libs.end())
-  {
-    dependencies_tmp.insert(dependency);
-  }
-}
+//----------------------------------------------------------------------
+// Protected methods
+//----------------------------------------------------------------------
+protected:
 
-void tFinstructableGroup::AddDependency(const rrlib::rtti::tType& dt)
-{
-  if (dt.GetUid() >= startup_type_count)
+  virtual void OnStaticParameterChange() override
   {
-    std::string tmp(dt.GetBinary());
-    if (tmp.length() > 0)
+    if (xml_file.HasChanged() && xml_file.Get().length() > 0)
     {
-      if (tmp.find('/') != std::string::npos)
+      xml_filename = xml_file.Get();
+      //if (this.childCount() == 0) { // TODO: original intension: changing xml files to mutliple existing ones in finstruct shouldn't load all of them
+      if (core::FinrocFileExists(xml_filename))
       {
-        tmp = tmp.substr(tmp.rfind('/') + 1);
-      }
-      AddDependency(tmp);
-    }
-  }
-}
-
-core::tAbstractPort* tFinstructableGroup::GetChildPort(const std::string& link)
-{
-  if (link[0] == '/')
-  {
-    return GetRuntime().GetPort(link);
-  }
-  core::tFrameworkElement* fe = GetChildElement(link, false);
-  if (fe != NULL && fe->IsPort())
-  {
-    return static_cast<core::tAbstractPort*>(fe);
-  }
-  return NULL;
-}
-
-std::string tFinstructableGroup::GetEdgeLink(const std::string& target_link, const std::string& this_group_link)
-{
-  if (target_link.compare(0, this_group_link.length(), this_group_link) == 0)
-  {
-    return target_link.substr(this_group_link.length());
-  }
-  return target_link;
-}
-
-std::string tFinstructableGroup::GetEdgeLink(core::tAbstractPort& ap, const std::string& this_group_link)
-{
-  core::tFrameworkElement* alt_root = ap.GetParentWithFlags(tFlag::ALTERNATIVE_LINK_ROOT);
-  if (alt_root && alt_root->IsChildOf(*this))
-  {
-    return ap.GetQualifiedLink();
-  }
-  return ap.GetQualifiedName().substr(this_group_link.length());
-}
-
-std::string tFinstructableGroup::GetXmlFileString()
-{
-  std::string s = fixed_xml_name.length() > 0 ? fixed_xml_name : xml_file->Get();
-  if (s.find(cUNWANTED_XML_FILE_PREFIX) != std::string::npos)
-  {
-    FINROC_LOG_PRINT(WARNING, "XML file name '", s, "' is deprecated, because it contains '", cUNWANTED_XML_FILE_PREFIX, "'. File will not be found when installed.");
-  }
-  return s;
-}
-
-void tFinstructableGroup::Instantiate(const rrlib::xml::tNode& node, tFrameworkElement* parent)
-{
-  try
-  {
-    std::string name = node.GetStringAttribute("name");
-    std::string group = node.GetStringAttribute("group");
-    std::string type = node.GetStringAttribute("type");
-
-    // find action
-    tCreateFrameworkElementAction* action = LoadModuleType(group, type);
-    if (action == NULL)
-    {
-      FINROC_LOG_PRINT(WARNING, "Failed to instantiate element. No module type ", group, "/", type, " available. Skipping...");
-      return;
-    }
-
-    // read parameters
-    rrlib::xml::tNode::const_iterator child_node = node.ChildrenBegin();
-    const rrlib::xml::tNode* parameters = NULL;
-    const rrlib::xml::tNode* constructor_params = NULL;
-    std::string p_name = child_node->Name();
-    if (p_name == "constructor")
-    {
-      constructor_params = &(*child_node);
-      ++child_node;
-      p_name = child_node->Name();
-    }
-    if (p_name == "parameters")
-    {
-      parameters = &(*child_node);
-      ++child_node;
-    }
-
-    // create mode
-    tFrameworkElement* created = NULL;
-    tConstructorParameters* spl = NULL;
-    if (constructor_params != NULL)
-    {
-      spl = action->GetParameterTypes()->Instantiate();
-      spl->Deserialize(*constructor_params, true);
-    }
-    created = action->CreateModule(parent, name, spl);
-    SetFinstructed(*created, action, spl);
-    if (parameters)
-    {
-      created->GetAnnotation<parameters::internal::tStaticParameterList>()->Deserialize(*parameters, true);
-    }
-    created->Init();
-
-    // continue with children
-    for (; child_node != node.ChildrenEnd(); ++child_node)
-    {
-      std::string name2 = child_node->Name();
-      if (name2 == "element")
-      {
-        Instantiate(*child_node, created);
+        this->GetAnnotation<tFinstructable>()->LoadXml();
       }
       else
       {
-        FINROC_LOG_PRINT(WARNING, "Unknown XML tag: ", name2);
-      }
-    }
-
-  }
-  catch (const rrlib::xml::tException& e)
-  {
-    FINROC_LOG_PRINT(WARNING, "Failed to instantiate element. Skipping...");
-    LogException(e);
-  }
-  catch (const std::exception& e)
-  {
-    FINROC_LOG_PRINT(WARNING, "Failed to instantiate element. Skipping...");
-    FINROC_LOG_PRINT(WARNING, e);
-  }
-}
-
-bool tFinstructableGroup::IsResponsibleForConfigFileConnections(tFrameworkElement& ap) const
-{
-  return parameters::internal::tParameterInfo::IsFinstructableGroupResponsibleForConfigFileConnections(*this, ap);
-}
-
-void tFinstructableGroup::LoadXml(const std::string& xml_file_)
-{
-  {
-    rrlib::thread::tLock lock2(GetStructureMutex());
-    try
-    {
-      FINROC_LOG_PRINT(DEBUG, "Loading XML: ", xml_file_);
-      rrlib::xml::tDocument doc(core::GetFinrocXMLDocument(xml_file_, false));
-      rrlib::xml::tNode& root = doc.RootNode();
-      std::string link_tmp = GetQualifiedName() + "/";
-      if (main_name.length() == 0 && root.HasAttribute("defaultname"))
-      {
-        main_name = root.GetStringAttribute("defaultname");
-      }
-
-      // load dependencies
-      if (root.HasAttribute("dependencies"))
-      {
-        std::vector<std::string> deps;
-        std::stringstream stream(root.GetStringAttribute("dependencies"));
-        std::string dependency;
-        while (std::getline(stream, dependency, ','))
-        {
-          rrlib::util::TrimWhitespace(dependency);
-          tSharedLibrary dep(dependency);
-          std::vector<tSharedLibrary> loadable = GetLoadableFinrocLibraries();
-          bool loaded = false;
-          for (size_t i = 0; i < loadable.size(); i++)
-          {
-            if (loadable[i] == dep)
-            {
-              DLOpen(dep);
-              loaded = true;
-              break;
-            }
-          }
-          if (!loaded)
-          {
-            std::set<tSharedLibrary> loaded_libs = GetLoadedFinrocLibraries();
-            if (loaded_libs.find(dep) == loaded_libs.end())
-            {
-              FINROC_LOG_PRINT(WARNING, "Dependency ", dep.ToString(true), " is not available.");
-            }
-          }
-        }
-      }
-
-      for (rrlib::xml::tNode::const_iterator node = root.ChildrenBegin(); node != root.ChildrenEnd(); ++node)
-      {
-        std::string name = node->Name();
-        if (name == "staticparameter")
-        {
-          parameters::internal::tStaticParameterList& spl = parameters::internal::tStaticParameterList::GetOrCreate(*this);
-          spl.Add(*new parameters::internal::tStaticParameterImplementationBase(node->GetStringAttribute("name"), rrlib::rtti::tType(), false, true));
-        }
-        else if (name == "interface")
-        {
-          tEditableInterfaces* editable_interfaces = this->GetAnnotation<tEditableInterfaces>();
-          if (editable_interfaces)
-          {
-            try
-            {
-              editable_interfaces->LoadInterfacePorts(*node);
-            }
-            catch (const std::exception& e)
-            {
-              FINROC_LOG_PRINT(WARNING, "Loading interface ports failed. Reason: ", e);
-            }
-          }
-          else
-          {
-            FINROC_LOG_PRINT(WARNING, "Cannot load interface, because finstructable group does not have any editable interfaces.");
-          }
-        }
-        else if (name == "element")
-        {
-          Instantiate(*node, this);
-        }
-        else if (name == "edge")
-        {
-          std::string src = node->GetStringAttribute("src");
-          std::string dest = node->GetStringAttribute("dest");
-          core::tAbstractPort* src_port = GetChildPort(src);
-          core::tAbstractPort* dest_port = GetChildPort(dest);
-          if (src_port == NULL && dest_port == NULL)
-          {
-            FINROC_LOG_PRINT(WARNING, "Cannot create edge because neither port is available: ", src, ", ", dest);
-          }
-          else if (src_port == NULL || src_port->GetFlag(tFlag::VOLATILE))    // source volatile
-          {
-            dest_port->ConnectTo(QualifyLink(src, link_tmp), core::tAbstractPort::tConnectDirection::AUTO, true);
-          }
-          else if (dest_port == NULL || dest_port->GetFlag(tFlag::VOLATILE))    // destination volatile
-          {
-            src_port->ConnectTo(QualifyLink(dest, link_tmp), core::tAbstractPort::tConnectDirection::AUTO, true);
-          }
-          else
-          {
-            src_port->ConnectTo(*dest_port, core::tAbstractPort::tConnectDirection::AUTO, true);
-          }
-        }
-        else if (name == "parameter")
-        {
-          std::string param = node->GetStringAttribute("link");
-          core::tAbstractPort* parameter = GetChildPort(param);
-          if (parameter == NULL)
-          {
-            FINROC_LOG_PRINT(WARNING, "Cannot set config entry, because parameter is not available: ", param);
-          }
-          else
-          {
-            parameters::internal::tParameterInfo* pi = parameter->GetAnnotation<parameters::internal::tParameterInfo>();
-            bool outermost_group = GetParent() == &(core::tRuntimeEnvironment::GetInstance());
-            if (pi == NULL)
-            {
-              FINROC_LOG_PRINT(WARNING, "Port is not parameter: ", param);
-            }
-            else
-            {
-              if (outermost_group && node->HasAttribute("cmdline") && (!IsResponsibleForConfigFileConnections(*parameter)))
-              {
-                pi->SetCommandLineOption(node->GetStringAttribute("cmdline"));
-              }
-              else
-              {
-                pi->Deserialize(*node, true, outermost_group);
-              }
-              try
-              {
-                pi->LoadValue();
-              }
-              catch (std::exception& e)
-              {
-                FINROC_LOG_PRINT(WARNING, "Unable to load parameter value: ", param, ". ", e);
-              }
-            }
-          }
-        }
-        else
-        {
-          FINROC_LOG_PRINT(WARNING, "Unknown XML tag: ", name);
-        }
-      }
-      FINROC_LOG_PRINT(DEBUG, "Loading XML successful");
-    }
-    catch (const std::exception& e)
-    {
-      FINROC_LOG_PRINT(WARNING, "Loading XML failed: ", xml_file_);
-      LogException(e);
-    }
-  }
-}
-
-void tFinstructableGroup::LogException(const std::exception& e)
-{
-  const char* msg = e.what();
-  FINROC_LOG_PRINT(ERROR, msg);
-}
-
-void tFinstructableGroup::OnStaticParameterChange()
-{
-  if (xml_file && xml_file->HasChanged() && xml_file->Get().length() > 0)
-  {
-    //if (this.childCount() == 0) { // TODO: original intension: changing xml files to mutliple existing ones in finstruct shouldn't load all of them
-    if (core::FinrocFileExists(xml_file->Get()))
-    {
-      LoadXml(xml_file->Get());
-    }
-    else
-    {
-      FINROC_LOG_PRINT(DEBUG, "Cannot find XML file ", xml_file->Get(), ". Creating empty group. You may edit and save this group using finstruct.");
-    }
-  }
-}
-
-void tFinstructableGroup::PostChildInit()
-{
-  if (fixed_xml_name.length() > 0)
-  {
-    if (core::FinrocFileExists(fixed_xml_name))
-    {
-      LoadXml(fixed_xml_name);
-    }
-  }
-}
-
-std::string tFinstructableGroup::QualifyLink(const std::string& link, const std::string& this_group_link)
-{
-  if (link[0] == '/')
-  {
-    return link;
-  }
-  return this_group_link + link;
-}
-
-void tFinstructableGroup::SaveXml()
-{
-  {
-    rrlib::thread::tLock lock2(GetStructureMutex());
-    saving_thread = &rrlib::thread::tThread::CurrentThread();
-    dependencies_tmp.clear();
-    std::string save_to = core::GetFinrocFileToSaveTo(GetXmlFileString());
-    if (save_to.length() == 0)
-    {
-      std::string save_to_alt = GetXmlFileString();
-      std::replace(save_to_alt.begin(), save_to_alt.end(), '/', '_');
-      FINROC_LOG_PRINT(USER, "There does not seem to be any suitable location for: '", GetXmlFileString(), "' . For now, using '", save_to_alt, "'.");
-      save_to = save_to_alt;
-    }
-    FINROC_LOG_PRINT(USER, "Saving XML: ", save_to);
-    rrlib::xml::tDocument doc;
-    try
-    {
-      rrlib::xml::tNode& root = doc.AddRootNode("FinstructableGroup");
-
-      // serialize default main name
-      if (main_name.length() > 0)
-      {
-        root.SetAttribute("defaultname", main_name);
-      }
-
-      // serialize proxy parameters
-      parameters::internal::tStaticParameterList* spl = GetAnnotation<parameters::internal::tStaticParameterList>();
-      if (spl != NULL)
-      {
-        for (size_t i = 0; i < spl->Size(); i++)
-        {
-          parameters::internal::tStaticParameterImplementationBase& sp = spl->Get(i);
-          if (sp.IsStaticParameterProxy())
-          {
-            rrlib::xml::tNode& proxy = root.AddChildNode("staticparameter");
-            proxy.SetAttribute("name", sp.GetName());
-          }
-        }
-      }
-
-      // serialize any editable interfaces
-      tEditableInterfaces* editable_interfaces = GetAnnotation<tEditableInterfaces>();
-      if (editable_interfaces)
-      {
-        editable_interfaces->SaveAllNonEmptyInterfaces(root);
-      }
-
-      // serialize framework elements
-      SerializeChildren(root, *this);
-
-      // serialize edges
-      std::string link_tmp = GetQualifiedName() + "/";
-      for (auto it = SubElementsBegin(); it != SubElementsEnd(); ++it)
-      {
-        if ((!it->IsPort()) || (!it->IsReady()))
-        {
-          continue;
-        }
-        core::tAbstractPort& ap = static_cast<core::tAbstractPort&>(*it);
-
-        // first pass
-        for (auto it = ap.OutgoingConnectionsBegin(); it != ap.OutgoingConnectionsEnd(); ++it) // only outgoing edges => we don't get any edges double
-        {
-          core::tAbstractPort& ap2 = *it;
-          if (!ap.IsEdgeFinstructed(ap2))
-          {
-            continue;
-          }
-
-          // save edge?
-          // check1: different finstructed elements as parent?
-          if (ap.GetParentWithFlags(tFlag::FINSTRUCTED) == ap2.GetParentWithFlags(tFlag::FINSTRUCTED))
-          {
-            // TODO: check why continue causes problems here
-            // continue;
-          }
-
-          // check2: their deepest common finstructable_group parent is this
-          core::tFrameworkElement* common_parent = ap.GetParent();
-          while (!ap2.IsChildOf(*common_parent))
-          {
-            common_parent = common_parent->GetParent();
-          }
-          core::tFrameworkElement* common_finstructable_parent = common_parent->GetFlag(tFlag::FINSTRUCTABLE_GROUP) ? common_parent : common_parent->GetParentWithFlags(tFlag::FINSTRUCTABLE_GROUP);
-          if (common_finstructable_parent != this)
-          {
-            continue;
-          }
-
-          // check3: only save non-volatile connections in this step (finstruct creates link edges for volatile ports)
-          if (ap.GetFlag(tFlag::VOLATILE) || ap2.GetFlag(tFlag::VOLATILE))
-          {
-            continue;
-          }
-
-          // save edge
-          rrlib::xml::tNode& edge = root.AddChildNode("edge");
-          edge.SetAttribute("src", GetEdgeLink(ap, link_tmp));
-          edge.SetAttribute("dest", GetEdgeLink(ap2, link_tmp));
-        }
-
-        // serialize link edges
-        if (ap.link_edges)
-        {
-          for (size_t i = 0u; i < ap.link_edges->size(); i++)
-          {
-            core::internal::tLinkEdge* le = (*ap.link_edges)[i];
-            if (!le->IsFinstructed())
-            {
-              continue;
-            }
-            if (le->GetSourceLink().length() > 0)
-            {
-              // save edge
-              rrlib::xml::tNode& edge = root.AddChildNode("edge");
-              edge.SetAttribute("src", GetEdgeLink(le->GetSourceLink(), link_tmp));
-              edge.SetAttribute("dest", GetEdgeLink(ap, link_tmp));
-            }
-            else
-            {
-              // save edge
-              rrlib::xml::tNode& edge = root.AddChildNode("edge");
-              edge.SetAttribute("src", GetEdgeLink(ap, link_tmp));
-              edge.SetAttribute("dest", GetEdgeLink(le->GetTargetLink(), link_tmp));
-            }
-          }
-        }
-      }
-
-      // Save parameter config entries
-      for (auto it = SubElementsBegin(); it != SubElementsEnd(); ++it)
-      {
-        if ((!it->IsPort()) || (!it->IsReady()))
-        {
-          continue;
-        }
-        core::tAbstractPort& ap = static_cast<core::tAbstractPort&>(*it);
-
-        // second pass?
-        bool outermostGroup = this->GetParent() == &(core::tRuntimeEnvironment::GetInstance());
-        parameters::internal::tParameterInfo* info = ap.GetAnnotation<parameters::internal::tParameterInfo>();
-
-        if (info != NULL && info->HasNonDefaultFinstructInfo())
-        {
-          if (!IsResponsibleForConfigFileConnections(ap))
-          {
-
-            if (outermostGroup && info->GetCommandLineOption().length() > 0)
-            {
-              rrlib::xml::tNode& config = root.AddChildNode("parameter");
-              config.SetAttribute("link", GetEdgeLink(ap, link_tmp));
-              config.SetAttribute("cmdline", info->GetCommandLineOption());
-            }
-
-            continue;
-          }
-
-          rrlib::xml::tNode& config = root.AddChildNode("parameter");
-          config.SetAttribute("link", GetEdgeLink(ap, link_tmp));
-          info->Serialize(config, true, outermostGroup);
-        }
-      }
-
-      // add dependencies
-      if (dependencies_tmp.size() > 0)
-      {
-        std::stringstream s;
-        for (auto it = dependencies_tmp.begin(); it != dependencies_tmp.end(); ++it)
-        {
-          if (it != dependencies_tmp.begin())
-          {
-            s << ", ";
-          }
-          s << it->ToString();
-        }
-
-        root.SetAttribute("dependencies", s.str());
-        dependencies_tmp.clear();
-      }
-
-      doc.WriteToFile(save_to);
-      FINROC_LOG_PRINT(USER, "Saving successful.");
-
-    }
-    catch (const rrlib::xml::tException& e)
-    {
-      const char* msg = e.what();
-      FINROC_LOG_PRINT(USER, "Saving failed: ", msg);
-      throw std::runtime_error(msg);
-    }
-  }
-  saving_thread = NULL;
-}
-
-std::vector<std::string> tFinstructableGroup::ScanForCommandLineArgs(const std::string& finroc_file)
-{
-  std::vector<std::string> result;
-  try
-  {
-    rrlib::xml::tDocument doc(core::GetFinrocXMLDocument(finroc_file, false));
-    try
-    {
-      FINROC_LOG_PRINT_STATIC(DEBUG, "Scanning for command line options in ", finroc_file);
-      rrlib::xml::tNode& root = doc.RootNode();
-      ScanForCommandLineArgsHelper(result, root);
-      FINROC_LOG_PRINTF_STATIC(DEBUG, "Scanning successful. Found %zu additional options.", result.size());
-    }
-    catch (std::exception& e)
-    {
-      FINROC_LOG_PRINT_STATIC(WARNING, "FinstructableGroup", "Scanning failed: ", finroc_file, e);
-    }
-  }
-  catch (std::exception& e)
-  {}
-  return result;
-}
-
-void tFinstructableGroup::ScanForCommandLineArgsHelper(std::vector<std::string>& result, const rrlib::xml::tNode& parent)
-{
-  for (rrlib::xml::tNode::const_iterator node = parent.ChildrenBegin(); node != parent.ChildrenEnd(); ++node)
-  {
-    std::string name(node->Name());
-    if (node->HasAttribute("cmdline") && (name == "staticparameter" || name == "parameter"))
-    {
-      result.push_back(node->GetStringAttribute("cmdline"));
-    }
-    ScanForCommandLineArgsHelper(result, *node);
-  }
-}
-
-void tFinstructableGroup::SerializeChildren(rrlib::xml::tNode& node, tFrameworkElement& current)
-{
-  for (auto child = current.ChildrenBegin(); child != current.ChildrenEnd(); ++child)
-  {
-    parameters::internal::tStaticParameterList* spl = child->GetAnnotation<parameters::internal::tStaticParameterList>();
-    tConstructorParameters* cps = child->GetAnnotation<tConstructorParameters>();
-    if (child->IsReady() && child->GetFlag(tFlag::FINSTRUCTED))
-    {
-      // serialize framework element
-      rrlib::xml::tNode& n = node.AddChildNode("element");
-      n.SetAttribute("name", child->GetName());
-      tCreateFrameworkElementAction* cma = tCreateFrameworkElementAction::GetConstructibleElements()[spl->GetCreateAction()];
-      n.SetAttribute("group", cma->GetModuleGroup().ToString());
-      //if (boost::ends_with(cma->GetModuleGroup(), ".so"))
-      //{
-      AddDependency(cma->GetModuleGroup());
-      //}
-      n.SetAttribute("type", cma->GetName());
-      if (cps != NULL)
-      {
-        rrlib::xml::tNode& pn = n.AddChildNode("constructor");
-        cps->Serialize(pn, true);
-      }
-      if (spl != NULL)
-      {
-        rrlib::xml::tNode& pn = n.AddChildNode("parameters");
-        spl->Serialize(pn, true);
-      }
-
-      // serialize its children
-      if (!child->GetFlag(tFlag::FINSTRUCTABLE_GROUP))
-      {
-        SerializeChildren(n, *child);
+        FINROC_LOG_PRINT(DEBUG, "Cannot find XML file ", xml_filename, ". Creating empty group. You may edit and save this group using finstruct.");
       }
     }
   }
-}
 
-void tFinstructableGroup::SetFinstructed(tFrameworkElement& fe, tCreateFrameworkElementAction* create_action, tConstructorParameters* params)
-{
-  assert(!fe.GetFlag(tFlag::FINSTRUCTED) && (!fe.IsReady()));
-  parameters::internal::tStaticParameterList& list = parameters::internal::tStaticParameterList::GetOrCreate(fe);
-  const std::vector<tCreateFrameworkElementAction*>& v = tCreateFrameworkElementAction::GetConstructibleElements();
-  list.SetCreateAction(static_cast<int>(std::find(v.begin(), v.end(), create_action) - v.begin()));
-  fe.SetFlag(tFlag::FINSTRUCTED);
-  if (params)
-  {
-    fe.AddAnnotation<tConstructorParameters>(*params);
-  }
-}
+//----------------------------------------------------------------------
+// Private fields and methods
+//----------------------------------------------------------------------
+private:
 
-void tFinstructableGroup::StaticInit()
-{
-  startup_type_count = rrlib::rtti::tType::GetTypeCount();
-  startup_loaded_finroc_libs = GetLoadedFinrocLibraries();
-}
+  /*! String that always contains current xml file name */
+  std::string xml_filename;
+
+};
+
+tStandardCreateModuleAction<tFinstructableGroup> cCREATE_ACTION_FOR_T_FINSTRUCTABLE_GROUP("Finstructable Group");
 
 //----------------------------------------------------------------------
 // End of namespace declaration
