@@ -42,7 +42,7 @@
 #include "core/file_lookup.h"
 #include "core/tRuntimeEnvironment.h"
 #include "plugins/structure/main_utilities.h"
-#include "plugins/structure/tThreadContainer.h"
+#include "plugins/structure/tTopLevelThreadContainer.h"
 
 //----------------------------------------------------------------------
 // Internal includes with ""
@@ -87,10 +87,10 @@ struct tFinrocFile
   std::string main_name;
 
   /*! Thread container that was created for .finroc file */
-  tThreadContainer* thread_container;
+  tTopLevelThreadContainer<>* thread_container;
 
   tFinrocFile(const std::string &argument) :
-    thread_container(NULL)
+    thread_container(nullptr)
   {
     if (argument.find(':') != std::string::npos)
     {
@@ -218,8 +218,7 @@ int main(int argc, char **argv)
   // Create thread containers
   for (auto it = finroc_files.begin(); it != finroc_files.end(); ++it)
   {
-    it->thread_container = new tThreadContainer(&tRuntimeEnvironment::GetInstance(), it->main_name, it->file_name, true,
-        make_all_port_links_unique ? tFrameworkElementFlags(tFrameworkElementFlag::GLOBALLY_UNIQUE_LINK) : tFrameworkElementFlags());
+    it->thread_container = new tTopLevelThreadContainer<>(it->main_name, it->file_name, true, make_all_port_links_unique);
     it->thread_container->GetAnnotation<finroc::runtime_construction::tFinstructable>()->SetMainName(it->main_name);
     if (it == finroc_files.begin())
     {
