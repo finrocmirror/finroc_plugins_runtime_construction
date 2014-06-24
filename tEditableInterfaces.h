@@ -81,28 +81,6 @@ class tEditableInterfaces : public tInterfaces
 //----------------------------------------------------------------------
 public:
 
-  /*! Maximum number of editable interfaces */
-  enum { cMAX_INTERFACE_COUNT = 32 };
-
-  /*!
-   * Static info for a single interface type of a component type
-   * (exists once for every interface type)
-   */
-  struct tStaticInterfaceInfo
-  {
-    /*! Interface name */
-    const char* name;
-
-    /*! Any extra flags to assign to interface */
-    core::tFrameworkElement::tFlags extra_interface_flags;
-
-    /*! Any extra flags to assign to all ports */
-    core::tFrameworkElement::tFlags default_port_flags;
-
-    /*! Which creation options should be visible and selectable in finstruct? */
-    tPortCreateOptions selectable_create_options;
-  };
-
   using tInterfaces::tInterfaces;
 
   /*!
@@ -144,14 +122,6 @@ public:
 //----------------------------------------------------------------------
 private:
 
-  friend rrlib::serialization::tOutputStream& operator << (rrlib::serialization::tOutputStream& stream, const tEditableInterfaces& interfaces);
-  friend rrlib::serialization::tInputStream& operator >> (rrlib::serialization::tInputStream& stream, tEditableInterfaces& interfaces);
-
-  /*!
-   * \interface_index Index of interface
-   * \return Default port flags for specified interface
-   */
-  core::tFrameworkElement::tFlags GetDefaultPortFlags(size_t interface_index) const;
 };
 
 
