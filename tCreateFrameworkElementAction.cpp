@@ -32,7 +32,9 @@
 //----------------------------------------------------------------------
 // External includes (system with <>, local with "")
 //----------------------------------------------------------------------
+#if __linux__
 #include <dlfcn.h>
+#endif
 
 //----------------------------------------------------------------------
 // Internal includes with ""
@@ -85,10 +87,14 @@ tCreateFrameworkElementAction::tCreateFrameworkElementAction()
 
 tSharedLibrary tCreateFrameworkElementAction::GetBinary(void* addr)
 {
+#if __linux__
   Dl_info info;
   dladdr(addr, &info);
   std::string tmp(info.dli_fname);
   return tmp.substr(tmp.rfind("/") + 1);
+#else
+  return "<unknown binary>";
+#endif
 }
 
 const std::vector<tCreateFrameworkElementAction*>& tCreateFrameworkElementAction::GetConstructibleElements()
