@@ -66,58 +66,10 @@ typedef core::tFrameworkElement::tFlags tFlags;
 // Const values
 //----------------------------------------------------------------------
 static rrlib::rtti::tDataType<tEditableInterfaces> cTYPE;
-static const std::vector<tEditableInterfaces::tStaticInterfaceInfo> cNO_STATIC_INTERFACE_INFO;
 
 //----------------------------------------------------------------------
 // Implementation
 //----------------------------------------------------------------------
-
-tEditableInterfaces::tEditableInterfaces() :
-  static_interface_info(cNO_STATIC_INTERFACE_INFO),
-  interface_array(NULL),
-  shared_interfaces(0)
-{
-  throw std::logic_error("This tEditableInterfaces constructor should never be called.");
-}
-
-tEditableInterfaces::tEditableInterfaces(const std::vector<tStaticInterfaceInfo>& static_interface_info, core::tPortGroup** interface_array,
-    std::bitset<cMAX_INTERFACE_COUNT> shared_interfaces) :
-  static_interface_info(static_interface_info),
-  interface_array(interface_array),
-  shared_interfaces(shared_interfaces)
-{
-  assert(static_interface_info.size() <= cMAX_INTERFACE_COUNT && "Maximum number of interfaces exceeded");
-}
-
-core::tPortGroup& tEditableInterfaces::CreateInterface(core::tFrameworkElement* parent, size_t index, bool initialize) const
-{
-  if (interface_array[index])
-  {
-    FINROC_LOG_PRINT(ERROR, "Interface already created.");
-    return *(interface_array[index]);
-  }
-  if (index >= static_interface_info.size())
-  {
-    throw new std::runtime_error("tEditableInterfaces::CreateInterface - Invalid index.");
-  }
-
-  const tStaticInterfaceInfo& static_info = static_interface_info[index];
-  interface_array[index] = new core::tPortGroup(parent, static_info.name, tFlag::INTERFACE | static_info.extra_interface_flags, GetDefaultPortFlags(index));
-  if (initialize)
-  {
-    interface_array[index]->Init();
-  }
-  return *(interface_array[index]);
-}
-
-tFlags tEditableInterfaces::GetDefaultPortFlags(size_t interface_index) const
-{
-  if (interface_index > static_interface_info.size())
-  {
-    throw new std::out_of_range("Index is out of bounds");
-  }
-  return static_interface_info[interface_index].default_port_flags | (shared_interfaces[interface_index] ? tFlags(tFlag::SHARED) : tFlags());
-}
 
 void tEditableInterfaces::LoadInterfacePorts(const rrlib::xml::tNode& node)
 {

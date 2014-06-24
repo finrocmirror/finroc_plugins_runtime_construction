@@ -47,6 +47,7 @@
 // Internal includes with ""
 //----------------------------------------------------------------------
 #include "plugins/runtime_construction/tDataTypeReference.h"
+#include "plugins/runtime_construction/tInterfaces.h"
 
 //----------------------------------------------------------------------
 // Namespace declaration
@@ -59,28 +60,6 @@ namespace runtime_construction
 //----------------------------------------------------------------------
 // Forward declarations / typedefs / enums
 //----------------------------------------------------------------------
-
-/*! Port Creation options for single ports in port creation list */
-enum class tPortCreateOption
-{
-  OUTPUT, //!< Create an output port?
-  SHARED  //!< Creast a shared port?
-};
-
-/*!
- * Set of port creation options
- */
-typedef rrlib::util::tEnumBasedFlags<tPortCreateOption, uint8_t> tPortCreateOptions;
-
-constexpr tPortCreateOptions operator | (const tPortCreateOptions& options1, const tPortCreateOptions& options2)
-{
-  return tPortCreateOptions(options1.Raw() | options2.Raw());
-}
-
-constexpr tPortCreateOptions operator | (tPortCreateOption option1, tPortCreateOption option2)
-{
-  return tPortCreateOptions(option1) | tPortCreateOptions(option2);
-}
 
 //----------------------------------------------------------------------
 // Class declaration

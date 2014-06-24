@@ -19,36 +19,32 @@
 // 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 //
 //----------------------------------------------------------------------
-/*!\file    plugins/runtime_construction/tEditableInterfaces.h
+/*!\file    plugins/runtime_construction/tInterfaces.h
  *
  * \author  Max Reichardt
  *
- * \date    2013-06-04
+ * \date    2014-06-25
  *
  * \brief   Contains tEditableInterfaces
  *
  * \b tEditableInterfaces
  *
  * Annotation for framework elements (usually finstructable groups)
- * whose interfaces can be edited via finstruct (via the administration
- * service to be more specific).
- *
- * Adding this annotation makes the specified interfaces editable.
- *
+ * whose interfaces can be created when needed.
  */
 //----------------------------------------------------------------------
-#ifndef __plugins__runtime_construction__tEditableInterfaces_h__
-#define __plugins__runtime_construction__tEditableInterfaces_h__
+#ifndef __plugins__runtime_construction__tInterfaces_h__
+#define __plugins__runtime_construction__tInterfaces_h__
 
 //----------------------------------------------------------------------
 // External includes (system with <>, local with "")
 //----------------------------------------------------------------------
+#include "core/port/tPortGroup.h"
 #include <bitset>
 
 //----------------------------------------------------------------------
 // Internal includes with ""
 //----------------------------------------------------------------------
-#include "plugins/runtime_construction/tInterfaces.h"
 
 //----------------------------------------------------------------------
 // Namespace declaration
@@ -62,18 +58,39 @@ namespace runtime_construction
 // Forward declarations / typedefs / enums
 //----------------------------------------------------------------------
 
+/*! Port Creation options for single ports in port creation list */
+enum class tPortCreateOption
+{
+  OUTPUT, //!< Create an output port?
+  SHARED  //!< Creast a shared port?
+};
+
+/*!
+ * Set of port creation options
+ */
+typedef rrlib::util::tEnumBasedFlags<tPortCreateOption, uint8_t> tPortCreateOptions;
+
+constexpr tPortCreateOptions operator | (const tPortCreateOptions& options1, const tPortCreateOptions& options2)
+{
+  return tPortCreateOptions(options1.Raw() | options2.Raw());
+}
+
+constexpr tPortCreateOptions operator | (tPortCreateOption option1, tPortCreateOption option2)
+{
+  return tPortCreateOptions(option1) | tPortCreateOptions(option2);
+}
+
+class tEditableInterfaces;
+
 //----------------------------------------------------------------------
 // Class declaration
 //----------------------------------------------------------------------
-//! Annotation for elements with editable interfaces
+//! Annotation for elements with lazily created interfaces
 /*!
  * Annotation for framework elements (usually finstructable groups)
- * whose interfaces can be edited via finstruct (via the administration
- * service to be more specific).
- *
- * Adding this annotation makes the specified interfaces editable.
+ * whose interfaces can be created when needed.
  */
-class tEditableInterfaces : public tInterfaces
+class tInterfaces : public core::tAnnotation
 {
 
 //----------------------------------------------------------------------
@@ -103,49 +120,45 @@ public:
     tPortCreateOptions selectable_create_options;
   };
 
-  using tInterfaces::tInterfaces;
+  /*! Should not be called. Exists for rrlib_rtti */
+  tInterfaces();
 
   /*!
-   * Loads and instantiates ports for one interface from information in xml node.
-   * Primary use case is loading finstructable groups.
-   *
-   * \param node XML node to load ports from
-   *
-   * \throw Throws different kinds of std::exceptions if loading fails
+   * \param static_interface_info Static info on editable interfaces
+   * \param interface_array Pointer to array (e.g. in group) containing editable interfaces - some entries may be null
+   * \param shared_interfaces Bitset that defines which interfaces should be shared with other runtime environments
    */
-  void LoadInterfacePorts(const rrlib::xml::tNode& node);
+  tInterfaces(const std::vector<tStaticInterfaceInfo>& static_interface_info, core::tPortGroup** interface_array,
+              std::bitset<cMAX_INTERFACE_COUNT> shared_interfaces);
 
   /*!
-   * Saves port information for all interfaces containing ports to the specified parent node.
-   * Primary use case is saving finstructable groups.
-   * For each non-empty interface a child node will be created:
+   * Creates interface according to this static interface info.
+   * Places interface in interface array provided in constructor
    *
-   * <interface name="name">
-   *   <port name="port 1 name" type="Number"/>
-   *   <port name="port 2 name" type="Number"/>
-   *   ...
-   * </interface>
-   *
-   * \param parent_node Node to add 'interface'-nodes to
+   * \param parent Parent framework element
+   * \param index Index of interface to create
+   * \param initialize Initialize created array?
+   * \return Returns Reference to created interface
    */
-  void SaveAllNonEmptyInterfaces(rrlib::xml::tNode& parent_node);
-
-  /*!
-   * Saves port of an interface to xml node.
-   * Primary use case is saving finstructable groups (called by SaveAllNonEmptyInterfaces)
-   *
-   * \param node XML node to save port information to
-   * \param index Index of interface to save port information of
-   */
-  void SaveInterfacePorts(rrlib::xml::tNode& node, size_t index);
+  core::tPortGroup& CreateInterface(core::tFrameworkElement* parent, size_t index, bool initialize) const;
 
 //----------------------------------------------------------------------
 // Private fields and methods
 //----------------------------------------------------------------------
 private:
 
+  friend class tEditableInterfaces;
   friend rrlib::serialization::tOutputStream& operator << (rrlib::serialization::tOutputStream& stream, const tEditableInterfaces& interfaces);
   friend rrlib::serialization::tInputStream& operator >> (rrlib::serialization::tInputStream& stream, tEditableInterfaces& interfaces);
+
+  /*! Static info on editable interfaces */
+  const std::vector<tStaticInterfaceInfo>& static_interface_info;
+
+  /*! Pointer to array (e.g. in group) containing editable interfaces - some entries may be null */
+  core::tPortGroup** interface_array;
+
+  /*! Bitset that defines which interfaces should be shared with other runtime environments */
+  const std::bitset<cMAX_INTERFACE_COUNT> shared_interfaces;
 
   /*!
    * \interface_index Index of interface
@@ -153,10 +166,6 @@ private:
    */
   core::tFrameworkElement::tFlags GetDefaultPortFlags(size_t interface_index) const;
 };
-
-
-rrlib::serialization::tOutputStream& operator << (rrlib::serialization::tOutputStream& stream, const tEditableInterfaces& interfaces);
-rrlib::serialization::tInputStream& operator >> (rrlib::serialization::tInputStream& stream, tEditableInterfaces& interfaces);
 
 //----------------------------------------------------------------------
 // End of namespace declaration

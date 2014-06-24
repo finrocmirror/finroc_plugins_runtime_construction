@@ -6,6 +6,7 @@
       tConstructorCreateModuleAction.h
       tConstructorParameters.cpp
       tCreateFrameworkElementAction.cpp
+      tInterfaces.cpp
       tSharedLibrary.cpp
       tStandardCreateModuleAction.h
     </sources>
