@@ -1,7 +1,8 @@
-<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE targets PUBLIC "-//RRLIB//DTD make 14.05" "http://finroc.org/xml/14.05/make.dtd">
 <targets>
 
-  <finrocplugin name="actions" optionallibs="dl">
+  <library name="actions" optionallibs="dl">
     <sources>
       tConstructorCreateModuleAction.h
       tConstructorParameters.cpp
@@ -10,9 +11,9 @@
       tSharedLibrary.cpp
       tStandardCreateModuleAction.h
     </sources>
-  </finrocplugin>
+  </library>
 
-  <finrocplugin>
+  <library>
     <sources>
       dynamic_loading.cpp
       tAdministrationService.cpp
@@ -24,12 +25,12 @@
       tGroupInterface.cpp
       tPortCreationList.cpp
     </sources>
-  </finrocplugin>
+  </library>
   
-  <finrocprogram name="finroc_run">
+  <program name="finroc_run">
     <sources>
       pFinrocRun.cpp
     </sources>
-  </finrocprogram>
+  </program>
 
 </targets>
