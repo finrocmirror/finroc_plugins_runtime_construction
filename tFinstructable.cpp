@@ -109,14 +109,10 @@ void tFinstructable::AddDependency(const rrlib::rtti::tType& dt)
 {
   if (dt.GetUid() >= startup_type_count)
   {
-    std::string tmp(dt.GetBinary());
-    if (tmp.length() > 0)
+    std::string binary(dt.GetBinary(false));
+    if (binary.length() > 0)
     {
-      if (tmp.find('/') != std::string::npos)
-      {
-        tmp = tmp.substr(tmp.rfind('/') + 1);
-      }
-      AddDependency(tmp);
+      AddDependency(binary);
     }
   }
 }
