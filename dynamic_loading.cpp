@@ -36,6 +36,7 @@
 #include <dlfcn.h>
 #include <dirent.h>
 #include <unistd.h>
+#include "rrlib/xml/tNode.h"
 #include "core/tRuntimeEnvironment.h"
 #include "plugins/parameters/tConfigurablePlugin.h"
 
