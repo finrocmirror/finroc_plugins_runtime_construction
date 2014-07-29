@@ -454,7 +454,7 @@ std::string tAdministrationService::NetworkConnect(int local_port_handle, const 
   std::vector<network_transport::tNetworkTransportPlugin*> transports_to_try;
   for (auto it = network_transport::tNetworkTransportPlugin::GetAll().begin(); it != network_transport::tNetworkTransportPlugin::GetAll().end(); ++it)
   {
-    if (preferred_transport == (*it)->GetId())
+    if (preferred_transport == (*it)->GetName())
     {
       transports_to_try.insert(transports_to_try.begin(), *it);
     }
@@ -480,7 +480,7 @@ std::string tAdministrationService::NetworkConnect(int local_port_handle, const 
     std::string result = (*it)->Connect(*local_port, remote_runtime_uuid, remote_port_handle, remote_port_link);
     if (result.length() == 0)
     {
-      FINROC_LOG_PRINT(USER, "Connected local port '", local_port->GetQualifiedLink(), "' to remote port '", remote_port_link, "' via ", (*it)->GetId());
+      FINROC_LOG_PRINT(USER, "Connected local port '", local_port->GetQualifiedLink(), "' to remote port '", remote_port_link, "' via ", (*it)->GetName());
       return "";
     }
   }

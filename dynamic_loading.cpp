@@ -36,8 +36,8 @@
 #include <dlfcn.h>
 #include <dirent.h>
 #include <unistd.h>
-#include "core/tPlugin.h"
 #include "core/tRuntimeEnvironment.h"
+#include "plugins/parameters/tConfigurablePlugin.h"
 
 //----------------------------------------------------------------------
 // Internal includes with ""
@@ -77,17 +77,51 @@ namespace runtime_construction
 namespace internal
 {
 
-class tRuntimeConstructionPlugin : public core::tPlugin
+class tRuntimeConstructionPlugin : public parameters::tConfigurablePlugin
 {
 public:
-  tRuntimeConstructionPlugin() {}
+  tRuntimeConstructionPlugin() : tConfigurablePlugin("runtime_construction") {}
 
-  virtual void Init() override
+  virtual void Init(rrlib::xml::tNode* config_node) override
   {
     tFinstructable::StaticInit();
 
     /*! Port that receives administration requests */
     tAdministrationService::CreateAdministrationPort();
+
+    /*! Load plugins from config file that have not been loaded yet (TODO: move to some other plugin?) */
+    rrlib::xml::tNode* root_node = parameters::tConfigurablePlugin::GetConfigRootNode();
+    if (root_node)
+    {
+      for (auto it = root_node->ChildrenBegin(); it != root_node->ChildrenEnd(); ++it)
+      {
+        if (it->Name() == "plugin")
+        {
+          try
+          {
+            std::string name = it->GetStringAttribute("name");
+            std::string library_name = "finroc_plugins_" + name;
+            if (!core::internal::tPlugins::GetInstance().IsPluginLoaded(name))
+            {
+              std::vector<tSharedLibrary> loadable_libraries = GetLoadableFinrocLibraries();
+              for (tSharedLibrary & shared_library : loadable_libraries)
+              {
+                if (shared_library.ToString() == library_name)
+                {
+                  FINROC_LOG_PRINT(DEBUG, "Loading plugin '" + name + "'");
+                  DLOpen(shared_library);
+                  break;
+                }
+              }
+            }
+          }
+          catch (const rrlib::xml::tException& e)
+          {
+            FINROC_LOG_PRINT(WARNING, "Config file contains plugin entry without 'name' attribute. This will be ignored.");
+          }
+        }
+      }
+    }
   }
 };
 
