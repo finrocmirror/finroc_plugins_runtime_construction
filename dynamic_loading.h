@@ -65,10 +65,10 @@ namespace runtime_construction
  * dlopen specified library
  * (also takes care of closing library again on program shutdown)
  *
- * \param open Shared library to open
- * \return Returns true if successful
+ * \param shared_library Shared library to open
+ * \exception std::runtime_error is thrown if dlopen fails
  */
-bool DLOpen(const tSharedLibrary& open);
+void DLOpen(const tSharedLibrary& shared_library);
 
 /*!
  * \return Returns vector with all finroc libraries available on hard disk.
@@ -91,14 +91,16 @@ std::set<tSharedLibrary> GetLoadedFinrocLibraries();
 std::vector<tSharedLibrary> GetLoadableFinrocLibraries();
 
 /*!
- * Returns/loads CreateFrameworkElementAction with specified name and specified .so file.
- * (doesn't do any dynamic loading, if .so is already present)
+ * Returns CreateFrameworkElementAction with specified name from specified shared library.
+ * The shared library is dynamically loaded - unless it is already present.
  *
- * \param group Group (.jar or .so)
+ * \param shared_library Shared library
  * \param name Module type name
- * \return CreateFrameworkElementAction - null if it could not be found
+ * \return CreateFrameworkElementAction with specified name from specified shared library.
+ * \exception std::runtime_error (with a nicely formatted error message for e.g. command line output) is thrown
+ *            if call fails (because library or component type does not exists - or dlopen fails)
  */
-tCreateFrameworkElementAction* LoadModuleType(const tSharedLibrary& group, const std::string& name);
+tCreateFrameworkElementAction& LoadComponentType(const tSharedLibrary& shared_library, const std::string& name);
 
 //----------------------------------------------------------------------
 // End of namespace declaration

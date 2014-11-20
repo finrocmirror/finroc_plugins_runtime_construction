@@ -110,7 +110,14 @@ public:
                 if (shared_library.ToString() == library_name)
                 {
                   FINROC_LOG_PRINT(DEBUG, "Loading plugin '" + name + "'");
-                  DLOpen(shared_library);
+                  try
+                  {
+                    DLOpen(shared_library);
+                  }
+                  catch (const std::exception& exception)
+                  {
+                    FINROC_LOG_PRINT(ERROR, "Loading plugin '" + name + "' failed: ", exception.what());
+                  }
                   break;
                 }
               }
@@ -156,17 +163,16 @@ static inline unsigned int GetLongevity(tDLCloser*)
 
 typedef rrlib::design_patterns::tSingletonHolder<tDLCloser, rrlib::design_patterns::singleton::Longevity> tDLCloserInstance;
 
-bool DLOpen(const tSharedLibrary& open)
+void DLOpen(const tSharedLibrary& shared_library)
 {
-  void* handle = dlopen(open.ToString(true).c_str(), RTLD_NOW | RTLD_GLOBAL);
+  void* handle = dlopen(shared_library.ToString(true).c_str(), RTLD_NOW | RTLD_GLOBAL);
   if (handle)
   {
     tDLCloserInstance::Instance().loaded.push_back(handle);
     core::internal::tPlugins::GetInstance().InitializeNewPlugins();
-    return true;
+    return;
   }
-  FINROC_LOG_PRINTF(ERROR, "Error from dlopen: %s", dlerror());
-  return false;
+  throw std::runtime_error(std::string("Error from dlopen: ") + dlerror());
 }
 
 std::set<tSharedLibrary> GetAvailableFinrocLibraries()
@@ -280,28 +286,27 @@ std::vector<tSharedLibrary> GetLoadableFinrocLibraries()
   return result;
 }
 
-tCreateFrameworkElementAction* LoadModuleType(const tSharedLibrary& group, const std::string& name)
+tCreateFrameworkElementAction& LoadComponentType(const tSharedLibrary& shared_library, const std::string& name)
 {
-  // dynamically loaded .so files
+  // contains all dynamically loaded .so files
   static std::vector<tSharedLibrary> loaded;
 
-  // try to find module among existing modules
+  // try to find component type among loaded ones
   const std::vector<tCreateFrameworkElementAction*>& modules = tCreateFrameworkElementAction::GetConstructibleElements();
   for (size_t i = 0u; i < modules.size(); i++)
   {
     tCreateFrameworkElementAction* cma = modules[i];
-    if (cma->GetModuleGroup() == group && cma->GetName().compare(name) == 0)
+    if (cma->GetModuleGroup() == shared_library && cma->GetName().compare(name) == 0)
     {
-      return cma;
+      return *cma;
     }
   }
 
-
-  // hmm... we didn't find it - have we already tried to load .so?
+  // Component type not found. Load shared library if this has not been done yet - and possibly try again.
   bool already_loaded = false;
   for (size_t i = 0; i < loaded.size(); i++)
   {
-    if (loaded[i] == group)
+    if (loaded[i] == shared_library)
     {
       already_loaded = true;
       break;
@@ -310,16 +315,16 @@ tCreateFrameworkElementAction* LoadModuleType(const tSharedLibrary& group, const
 
   if (!already_loaded)
   {
-    loaded.push_back(group);
+    loaded.push_back(shared_library);
     std::set<tSharedLibrary> loaded = GetLoadedFinrocLibraries();
-    if (loaded.find(group) == loaded.end() && DLOpen(group))
+    if (loaded.find(shared_library) == loaded.end())
     {
-      return LoadModuleType(group, name);
+      DLOpen(shared_library);
+      return LoadComponentType(shared_library, name);
     }
   }
 
-  FINROC_LOG_PRINT(ERROR, "Could not find/load module ", name, " in ", group.ToString());
-  return NULL;
+  throw std::runtime_error("No component type '" + name + "' available in '" + shared_library.ToString(true) + "'");
 }
 
 //----------------------------------------------------------------------

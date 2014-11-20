@@ -145,7 +145,7 @@ public:
    * \param create_action Action with which framework element was created
    * \param params Parameters that module was created with (may be null)
    */
-  static void SetFinstructed(core::tFrameworkElement& fe, tCreateFrameworkElementAction* create_action, tConstructorParameters* params);
+  static void SetFinstructed(core::tFrameworkElement& fe, tCreateFrameworkElementAction& create_action, tConstructorParameters* params);
 
   /*!
    * \param main_name Default name when group is main part
@@ -228,13 +228,6 @@ private:
    * \return Answer.
    */
   bool IsResponsibleForConfigFileConnections(core::tFrameworkElement& ap) const;
-
-  /*!
-   * Log exception (convenience method)
-   *
-   * \param e Exception
-   */
-  void LogException(const std::exception& e);
 
   /*!
    * Make fully-qualified link from relative one

@@ -175,19 +175,15 @@ std::string tFinstructable::GetXmlFileString()
 
 void tFinstructable::Instantiate(const rrlib::xml::tNode& node, tFrameworkElement* parent)
 {
+  std::string name = "component name not read";
   try
   {
-    std::string name = node.GetStringAttribute("name");
+    name = node.GetStringAttribute("name");
     std::string group = node.GetStringAttribute("group");
     std::string type = node.GetStringAttribute("type");
 
     // find action
-    tCreateFrameworkElementAction* action = LoadModuleType(group, type);
-    if (action == NULL)
-    {
-      FINROC_LOG_PRINT(WARNING, "Failed to instantiate element. No module type ", group, "/", type, " available. Skipping...");
-      return;
-    }
+    tCreateFrameworkElementAction& action = LoadComponentType(group, type);
 
     // read parameters
     rrlib::xml::tNode::const_iterator child_node = node.ChildrenBegin();
@@ -211,10 +207,10 @@ void tFinstructable::Instantiate(const rrlib::xml::tNode& node, tFrameworkElemen
     tConstructorParameters* spl = NULL;
     if (constructor_params != NULL)
     {
-      spl = action->GetParameterTypes()->Instantiate();
+      spl = action.GetParameterTypes()->Instantiate();
       spl->Deserialize(*constructor_params, true);
     }
-    created = action->CreateModule(parent, name, spl);
+    created = action.CreateModule(parent, name, spl);
     SetFinstructed(*created, action, spl);
     if (parameters)
     {
@@ -235,17 +231,14 @@ void tFinstructable::Instantiate(const rrlib::xml::tNode& node, tFrameworkElemen
         FINROC_LOG_PRINT(WARNING, "Unknown XML tag: ", name2);
       }
     }
-
   }
   catch (const rrlib::xml::tException& e)
   {
-    FINROC_LOG_PRINT(WARNING, "Failed to instantiate element. Skipping...");
-    LogException(e);
+    FINROC_LOG_PRINT(ERROR, "Failed to instantiate component '", name, "'. XML Exception: ", e.what(), ". Skipping.");
   }
   catch (const std::exception& e)
   {
-    FINROC_LOG_PRINT(WARNING, "Failed to instantiate element. Skipping...");
-    FINROC_LOG_PRINT(WARNING, e);
+    FINROC_LOG_PRINT(ERROR, "Failed to instantiate component '", name, "'. ", e.what(), ". Skipping.");
   }
 }
 
@@ -285,9 +278,16 @@ void tFinstructable::LoadXml()
           {
             if (loadable[i] == dep)
             {
-              DLOpen(dep);
-              loaded = true;
-              break;
+              try
+              {
+                DLOpen(dep);
+                loaded = true;
+                break;
+              }
+              catch (const std::exception& exception)
+              {
+                FINROC_LOG_PRINT(ERROR, exception);
+              }
             }
           }
           if (!loaded)
@@ -401,16 +401,9 @@ void tFinstructable::LoadXml()
     }
     catch (const std::exception& e)
     {
-      FINROC_LOG_PRINT(WARNING, "Loading XML failed: ", GetXmlFileString());
-      LogException(e);
+      FINROC_LOG_PRINT(WARNING, "Loading XML '", GetXmlFileString(), "' failed: ", e);
     }
   }
-}
-
-void tFinstructable::LogException(const std::exception& e)
-{
-  const char* msg = e.what();
-  FINROC_LOG_PRINT(ERROR, msg);
 }
 
 std::string tFinstructable::QualifyLink(const std::string& link, const std::string& this_group_link)
@@ -691,12 +684,12 @@ void tFinstructable::SerializeChildren(rrlib::xml::tNode& node, tFrameworkElemen
   }
 }
 
-void tFinstructable::SetFinstructed(tFrameworkElement& fe, tCreateFrameworkElementAction* create_action, tConstructorParameters* params)
+void tFinstructable::SetFinstructed(tFrameworkElement& fe, tCreateFrameworkElementAction& create_action, tConstructorParameters* params)
 {
   assert(!fe.GetFlag(tFlag::FINSTRUCTED) && (!fe.IsReady()));
   parameters::internal::tStaticParameterList& list = parameters::internal::tStaticParameterList::GetOrCreate(fe);
   const std::vector<tCreateFrameworkElementAction*>& v = tCreateFrameworkElementAction::GetConstructibleElements();
-  list.SetCreateAction(static_cast<int>(std::find(v.begin(), v.end(), create_action) - v.begin()));
+  list.SetCreateAction(static_cast<int>(std::find(v.begin(), v.end(), &create_action) - v.begin()));
   fe.SetFlag(tFlag::FINSTRUCTED);
   if (params)
   {

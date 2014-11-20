@@ -215,7 +215,7 @@ std::string tAdministrationService::CreateModule(uint32_t create_action_index, c
           }
         }
         core::tFrameworkElement* created = create_action->CreateModule(parent, module_name, parameters.get());
-        tFinstructable::SetFinstructed(*created, create_action, parameters.get());
+        tFinstructable::SetFinstructed(*created, *create_action, parameters.get());
         created->Init();
         parameters.release();
         FINROC_LOG_PRINT(USER, "Creating Module succeeded");
@@ -426,7 +426,14 @@ tAdministrationService::tExecutionStatus tAdministrationService::IsExecuting(int
 rrlib::serialization::tMemoryBuffer tAdministrationService::LoadModuleLibrary(const std::string& library_name)
 {
   FINROC_LOG_PRINT(USER, "Loading library ", library_name);
-  DLOpen(library_name);
+  try
+  {
+    DLOpen(library_name);
+  }
+  catch (const std::exception& exception)
+  {
+    FINROC_LOG_PRINT(ERROR, exception);
+  }
   return GetCreateModuleActions();
 }
 
