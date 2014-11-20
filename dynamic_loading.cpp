@@ -157,7 +157,7 @@ public:
 
 static inline unsigned int GetLongevity(tDLCloser*)
 {
-  return 0xFFFFFFFF; // unload code after everything else
+  return 0x5; // unload code after threads were stopped and runtime environment was deleted (deleting it too late triggers dlclose assertion)
 }
 
 
