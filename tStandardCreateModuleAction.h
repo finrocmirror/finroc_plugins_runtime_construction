@@ -57,16 +57,21 @@ namespace runtime_construction
 //----------------------------------------------------------------------
 // Forward declarations / typedefs / enums
 //----------------------------------------------------------------------
+template<typename T, bool Tdeprecated>
+struct CreateModuleImplementation;
 
 //----------------------------------------------------------------------
 // Class declaration
 //----------------------------------------------------------------------
 //! Default create action implementation
 /*!
- * Default create module action for finroc elements.
- * Modules need to have a constructor taking parent as first parameter and name as second.
+ * Default create action for Finroc elements.
+ * Element class needs to have a constructor taking its parent as first parameter and its name as second.
+ *
+ * \tparam T Element class to be instantiated
+ * \tparam Tdeprecated Can be used to mark classes as deprecated. This will generate a warning at runtime - rather than at compile for existence of the create action.
  */
-template<typename T>
+template<typename T, bool Tdeprecated = false>
 class tStandardCreateModuleAction : public tCreateFrameworkElementAction
 {
 
@@ -83,13 +88,17 @@ public:
     group(),
     type_name(type_name_)
   {
-    group = GetBinary((void*)CreateModuleImplementation);
+    group = GetBinary((void*)CreateModuleImplementation<T, Tdeprecated>::CreateModule);
   }
 
 
   virtual core::tFrameworkElement* CreateModule(core::tFrameworkElement* parent, const std::string& name, tConstructorParameters* params) const override
   {
-    return CreateModuleImplementation(parent, name);
+    if (Tdeprecated)
+    {
+      FINROC_LOG_PRINT(WARNING, "'", GetName(), "' in '", GetModuleGroup().ToString(false), "' is deprecated.");
+    }
+    return CreateModuleImplementation<T, Tdeprecated>::CreateModule(parent, name);
   }
 
   virtual tSharedLibrary GetModuleGroup() const override
@@ -118,11 +127,26 @@ private:
   /*! Name of module type */
   std::string type_name;
 
+};
 
-  /*! necessary to determine binary (?) */
-  static core::tFrameworkElement* CreateModuleImplementation(core::tFrameworkElement* parent, const std::string& name)
+template<typename T, bool Tdeprecated>
+struct CreateModuleImplementation
+{
+  static core::tFrameworkElement* CreateModule(core::tFrameworkElement* parent, const std::string& name)
   {
     return new T(parent, name);
+  }
+};
+
+template<typename T>
+struct CreateModuleImplementation<T, true>
+{
+  static core::tFrameworkElement* CreateModule(core::tFrameworkElement* parent, const std::string& name)
+  {
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
+    return new T(parent, name);
+#pragma GCC diagnostic pop
   }
 };
 
