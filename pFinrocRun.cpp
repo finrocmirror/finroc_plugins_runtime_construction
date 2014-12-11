@@ -215,6 +215,16 @@ int main(int argc, char **argv)
     }
   }
 
+  // Parse remaining command line options (before runtime environment is created so that plugins are dynamically loaded)
+  std::vector<std::string> remaining_arguments = rrlib::getopt::ProcessCommandLine(argc, argv, cPROGRAM_DESCRIPTION, cCOMMAND_LINE_ARGUMENTS, cADDITIONAL_HELP_TEXT);
+
+  if (finroc_files.size() != remaining_arguments.size())
+  {
+    FINROC_LOG_PRINT_STATIC(WARNING, "Something unintended happened while parsing the command line arguments of this program.");
+    FINROC_LOG_PRINT_STATIC(WARNING, "Is there an option that takes a ", cFINROC_FILE_EXTENSION, "-file as value?");
+    FINROC_LOG_PRINT_STATIC(WARNING, "In that case the ", cFINROC_FILE_EXTENSION, "-file was accidently instantiated and will be started.");
+  }
+
   // Create thread containers
   for (auto it = finroc_files.begin(); it != finroc_files.end(); ++it)
   {
@@ -224,15 +234,6 @@ int main(int argc, char **argv)
     {
       it->thread_container->InitiallyShowInTools(); // show the first thread container in tools
     }
-  }
-
-  std::vector<std::string> remaining_arguments = rrlib::getopt::ProcessCommandLine(argc, argv, cPROGRAM_DESCRIPTION, cCOMMAND_LINE_ARGUMENTS, cADDITIONAL_HELP_TEXT);
-
-  if (finroc_files.size() != remaining_arguments.size())
-  {
-    FINROC_LOG_PRINT_STATIC(WARNING, "Something unintended happened while parsing the command line arguments of this program.");
-    FINROC_LOG_PRINT_STATIC(WARNING, "Is there an option that takes a ", cFINROC_FILE_EXTENSION, "-file as value?");
-    FINROC_LOG_PRINT_STATIC(WARNING, "In that case the ", cFINROC_FILE_EXTENSION, "-file was accidently instantiated and will be started.");
   }
 
   if (finroc_files.empty())
