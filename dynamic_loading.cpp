@@ -96,6 +96,35 @@ public:
     {
       for (auto it = root_node->ChildrenBegin(); it != root_node->ChildrenEnd(); ++it)
       {
+        if (it->Name() == "load_library")
+        {
+          try
+          {
+            std::string name = it->GetStringAttribute("name");
+            std::vector<tSharedLibrary> loadable_libraries = GetLoadableFinrocLibraries();
+            for (tSharedLibrary & shared_library : loadable_libraries)
+            {
+              if (shared_library.ToString() == name || shared_library.ToString(true) == name)
+              {
+                FINROC_LOG_PRINT(DEBUG, "Loading library '" + name + "'");
+                try
+                {
+                  DLOpen(shared_library);
+                }
+                catch (const std::exception& exception)
+                {
+                  FINROC_LOG_PRINT(ERROR, "Loading library '" + name + "' failed: ", exception.what());
+                }
+                break;
+              }
+            }
+          }
+          catch (const rrlib::xml::tException& e)
+          {
+            FINROC_LOG_PRINT(WARNING, "Config file contains load_library entry without 'name' attribute. This will be ignored.");
+          }
+        }
+
         if (it->Name() == "plugin")
         {
           try
