@@ -251,7 +251,7 @@ std::set<tSharedLibrary> GetAvailableFinrocLibraries()
   }
   return result;
 #else
-  return tSharedLibrary();
+  return std::set<tSharedLibrary>();
 #endif
 }
 
