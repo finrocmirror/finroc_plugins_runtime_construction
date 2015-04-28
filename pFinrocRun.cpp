@@ -37,6 +37,7 @@
 // External includes (system with <>, local with "")
 //----------------------------------------------------------------------
 #include <chrono>
+#include <libgen.h>
 #include "rrlib/getopt/parser.h"
 #include "rrlib/logging/configuration.h"
 #include "core/file_lookup.h"
