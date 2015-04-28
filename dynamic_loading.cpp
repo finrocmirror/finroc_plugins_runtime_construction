@@ -206,6 +206,7 @@ void DLOpen(const tSharedLibrary& shared_library)
 
 std::set<tSharedLibrary> GetAvailableFinrocLibraries()
 {
+#ifndef __CYGWIN__
   // this implementation searches in path of libfinroc_core.so and in path <$FINROC_HOME>/export/<$TARGET>/lib
   std::vector<std::string> paths;
   tSharedLibrary core_lib = GetBinary((void*)GetBinary);
@@ -249,14 +250,21 @@ std::set<tSharedLibrary> GetAvailableFinrocLibraries()
     }
   }
   return result;
+#else
+  return tSharedLibrary();
+#endif
 }
 
 
 tSharedLibrary GetBinary(void* addr)
 {
+#ifndef __CYGWIN__
   Dl_info info;
   dladdr(addr, &info);
   return tSharedLibrary(info.dli_fname);
+#else
+  return tSharedLibrary();
+#endif
 }
 
 
