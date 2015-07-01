@@ -173,7 +173,7 @@ rrlib::serialization::tInputStream& operator >> (rrlib::serialization::tInputStr
     std::string name = stream.ReadString();
     if (name.compare(interfaces.static_interface_info[i].name) != 0)
     {
-      FINROC_LOG_PRINT(WARNING, "Deserialized string ", name, " does not match expected ", interfaces.static_interface_info[i].name);
+      FINROC_LOG_PRINT_STATIC(WARNING, "Deserialized string ", name, " does not match expected ", interfaces.static_interface_info[i].name);
     }
 
     bool interface_has_ports = stream.ReadBoolean();

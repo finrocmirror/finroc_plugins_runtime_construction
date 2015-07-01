@@ -219,14 +219,14 @@ std::set<tSharedLibrary> GetAvailableFinrocLibraries()
   char* target = getenv("FINROC_TARGET");
   if (finroc_home == NULL || target == NULL)
   {
-    FINROC_LOG_PRINT(WARNING, "FINROC_HOME/FINROC_TARGET not set.");
+    FINROC_LOG_PRINT_STATIC(WARNING, "FINROC_HOME/FINROC_TARGET not set.");
   }
   else
   {
     std::string local_path = std::string(finroc_home) + "/export/" + std::string(target) + "/lib";
     if (local_path != core_lib.GetPath())
     {
-      FINROC_LOG_PRINTF(DEBUG, "Searching for finroc modules in %s and %s.", core_lib.GetPath().c_str(), local_path.c_str());
+      FINROC_LOG_PRINTF_STATIC(DEBUG, "Searching for finroc modules in %s and %s.", core_lib.GetPath().c_str(), local_path.c_str());
       paths.push_back(local_path);
     }
   }
@@ -289,7 +289,7 @@ std::set<tSharedLibrary> GetLoadedFinrocLibraries()
       tSharedLibrary loaded = line.substr(line.find("/libfinroc_") + 1);
       if (result.find(loaded) == result.end())
       {
-        FINROC_LOG_PRINT(DEBUG_VERBOSE_1, "Found loaded finroc library: ", loaded.ToString(true));
+        FINROC_LOG_PRINT_STATIC(DEBUG_VERBOSE_1, "Found loaded finroc library: ", loaded.ToString(true));
         result.insert(loaded);
       }
     }
@@ -298,7 +298,7 @@ std::set<tSharedLibrary> GetLoadedFinrocLibraries()
       tSharedLibrary loaded = line.substr(line.find("/librrlib_") + 1);
       if (result.find(loaded) == result.end())
       {
-        FINROC_LOG_PRINT(DEBUG_VERBOSE_1, "Found loaded finroc library: ", loaded.ToString(true));
+        FINROC_LOG_PRINT_STATIC(DEBUG_VERBOSE_1, "Found loaded finroc library: ", loaded.ToString(true));
         result.insert(loaded);
       }
     }
