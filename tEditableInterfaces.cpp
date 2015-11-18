@@ -146,7 +146,7 @@ rrlib::serialization::tOutputStream& operator << (rrlib::serialization::tOutputS
     else
     {
       tPortCreateOptions selectable = interfaces.static_interface_info[i].selectable_create_options;
-      if (interfaces.shared_interfaces[i])
+      if (!interfaces.shared_interfaces[i])
       {
         selectable.Set(tPortCreateOption::SHARED, false);
       }
