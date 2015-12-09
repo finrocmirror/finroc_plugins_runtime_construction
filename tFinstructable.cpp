@@ -304,12 +304,7 @@ void tFinstructable::LoadXml()
       for (rrlib::xml::tNode::const_iterator node = root.ChildrenBegin(); node != root.ChildrenEnd(); ++node)
       {
         std::string name = node->Name();
-        if (name == "staticparameter")
-        {
-          parameters::internal::tStaticParameterList& spl = parameters::internal::tStaticParameterList::GetOrCreate(*GetFrameworkElement());
-          spl.Add(*new parameters::internal::tStaticParameterImplementationBase(node->GetStringAttribute("name"), rrlib::rtti::tType(), false, true));
-        }
-        else if (name == "interface")
+        if (name == "interface")
         {
           tEditableInterfaces* editable_interfaces = GetFrameworkElement()->GetAnnotation<tEditableInterfaces>();
           if (editable_interfaces)
@@ -446,21 +441,6 @@ void tFinstructable::SaveXml()
       if (main_name.length() > 0)
       {
         root.SetAttribute("defaultname", main_name);
-      }
-
-      // serialize proxy parameters
-      parameters::internal::tStaticParameterList* spl = GetFrameworkElement()->GetAnnotation<parameters::internal::tStaticParameterList>();
-      if (spl != NULL)
-      {
-        for (size_t i = 0; i < spl->Size(); i++)
-        {
-          parameters::internal::tStaticParameterImplementationBase& sp = spl->Get(i);
-          if (sp.IsStaticParameterProxy())
-          {
-            rrlib::xml::tNode& proxy = root.AddChildNode("staticparameter");
-            proxy.SetAttribute("name", sp.GetName());
-          }
-        }
       }
 
       // serialize any editable interfaces
