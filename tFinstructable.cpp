@@ -507,26 +507,41 @@ void tFinstructable::SaveXml()
         // serialize link edges
         if (ap.link_edges)
         {
-          for (size_t i = 0u; i < ap.link_edges->size(); i++)
+          // only process relevant ports
+          tFrameworkElement* port_group = ap.GetParentWithFlags(tFlag::FINSTRUCTABLE_GROUP);
+          tFrameworkElement* parent_group = port_group ? port_group->GetParentWithFlags(tFlag::FINSTRUCTABLE_GROUP) : nullptr;
+
+          if (port_group && (port_group == GetFrameworkElement() || parent_group == GetFrameworkElement()))
           {
-            core::internal::tLinkEdge* le = (*ap.link_edges)[i];
-            if (!le->IsFinstructed())
+            std::string port_group_link = port_group->GetQualifiedLink();
+
+            for (size_t i = 0u; i < ap.link_edges->size(); i++)
             {
-              continue;
-            }
-            if (le->GetSourceLink().length() > 0)
-            {
+              core::internal::tLinkEdge* le = (*ap.link_edges)[i];
+              if (!le->IsFinstructed())
+              {
+                continue;
+              }
+
+              // obtain link
+              bool source_link = le->GetSourceLink().length() > 0;
+              std::string link = source_link ? le->GetSourceLink() : le->GetTargetLink();
+
+              // obtain group to save port in
+              bool link_to_inside = rrlib::util::StartsWith(link, port_group_link);
+              tFrameworkElement* group_to_save_in = (link_to_inside || (!parent_group)) ? port_group : parent_group;
+              if (group_to_save_in != GetFrameworkElement())
+              {
+                // save link in another group
+                continue;
+              }
+
               // save edge
+              link = GetEdgeLink(link, link_tmp);
               rrlib::xml::tNode& edge = root.AddChildNode("edge");
-              edge.SetAttribute("src", GetEdgeLink(le->GetSourceLink(), link_tmp));
-              edge.SetAttribute("dest", GetEdgeLink(ap, link_tmp));
-            }
-            else
-            {
-              // save edge
-              rrlib::xml::tNode& edge = root.AddChildNode("edge");
-              edge.SetAttribute("src", GetEdgeLink(ap, link_tmp));
-              edge.SetAttribute("dest", GetEdgeLink(le->GetTargetLink(), link_tmp));
+              std::string this_port_link = GetEdgeLink(ap, link_tmp);
+              edge.SetAttribute("src", source_link ? link : this_port_link);
+              edge.SetAttribute("dest", source_link ? this_port_link : link);
             }
           }
         }
