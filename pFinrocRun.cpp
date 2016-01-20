@@ -214,6 +214,10 @@ int main(int argc, char **argv)
       make_all_port_links_unique = false;
       FINROC_LOG_PRINT(DEBUG, "Port links will be unique");
     }
+    if (argument == "--profiling")
+    {
+      finroc::scheduling::SetProfilingEnabled(true);
+    }
   }
 
   // Parse remaining command line options (before runtime environment is created so that plugins are dynamically loaded)
