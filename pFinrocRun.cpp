@@ -213,6 +213,10 @@ int main(int argc, char **argv)
       make_all_port_links_unique = false;
       FINROC_LOG_PRINT(DEBUG, "Port links will be unique");
     }
+    if (argument == "--profiling")
+    {
+      finroc::scheduling::SetProfilingEnabled(true);
+    }
   }
 
   // Create thread containers
