@@ -601,6 +601,16 @@ void tAdministrationService::SetAnnotation(int element_handle, const rrlib::seri
       else
       {
         type.Deserialize(input_stream, annotation);
+
+        // In case a new config entry is set (from finstruct), load it immediately
+        if (type.GetRttiName() == typeid(parameters::internal::tParameterInfo).name())
+        {
+          parameters::internal::tParameterInfo* info = static_cast<parameters::internal::tParameterInfo*>(annotation);
+          if (info->GetConfigEntry().length())
+          {
+            info->LoadValue(true);
+          }
+        }
       }
     }
   }

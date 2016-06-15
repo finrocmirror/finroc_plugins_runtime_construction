@@ -301,6 +301,17 @@ void tFinstructable::LoadXml()
         }
       }
 
+      // Load components (before interface in order to reduce issues with missing/unregistered data types)
+      for (rrlib::xml::tNode::const_iterator node = root.ChildrenBegin(); node != root.ChildrenEnd(); ++node)
+      {
+        std::string name = node->Name();
+        if (name == "element")
+        {
+          Instantiate(*node, GetFrameworkElement());
+        }
+      }
+
+      // Load all remaining XML elements
       for (rrlib::xml::tNode::const_iterator node = root.ChildrenBegin(); node != root.ChildrenEnd(); ++node)
       {
         std::string name = node->Name();
@@ -325,7 +336,7 @@ void tFinstructable::LoadXml()
         }
         else if (name == "element")
         {
-          Instantiate(*node, GetFrameworkElement());
+          // already instantiated
         }
         else if (name == "edge")
         {
