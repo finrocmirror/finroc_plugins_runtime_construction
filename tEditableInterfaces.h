@@ -44,11 +44,12 @@
 // External includes (system with <>, local with "")
 //----------------------------------------------------------------------
 #include <bitset>
+#include "core/port/tPortGroup.h"
 
 //----------------------------------------------------------------------
 // Internal includes with ""
 //----------------------------------------------------------------------
-#include "plugins/runtime_construction/tInterfaces.h"
+#include "plugins/runtime_construction/tPortCreationList.h"
 
 //----------------------------------------------------------------------
 // Namespace declaration
@@ -73,15 +74,25 @@ namespace runtime_construction
  *
  * Adding this annotation makes the specified interfaces editable.
  */
-class tEditableInterfaces : public tInterfaces
+class tEditableInterfaces : public core::tAnnotation
 {
+
+  /*! Entry in list of editable interfaces */
+  typedef std::pair<core::tPortGroup*, tPortCreateOptions> tEditableInterfaceEntry;
 
 //----------------------------------------------------------------------
 // Public methods and typedefs
 //----------------------------------------------------------------------
 public:
 
-  using tInterfaces::tInterfaces;
+  /*!
+   * Adds interface to list of editable interfaces of its parent component
+   *
+   * \param interface Interface to add to list (should not yet be initialized)
+   * \param port_create_options Available port create options - e.g. in finstruct (are intelligently adjusted - e.g. shared option is unset if all ports are shared anyway)
+   * \param at_front Add interface to front of list instead of back? (Can be used to make primary interfaces appear first in finstruct dialog)
+   */
+  static void AddInterface(core::tPortGroup& interface, tPortCreateOptions port_create_options, bool at_front = false);
 
   /*!
    * Loads and instantiates ports for one interface from information in xml node.
@@ -109,19 +120,24 @@ public:
   void SaveAllNonEmptyInterfaces(rrlib::xml::tNode& parent_node);
 
   /*!
-   * Saves port of an interface to xml node.
+   * Saves ports of an interface to xml node.
    * Primary use case is saving finstructable groups (called by SaveAllNonEmptyInterfaces)
    *
    * \param node XML node to save port information to
-   * \param index Index of interface to save port information of
+   * \param entry Interface to save
    */
-  void SaveInterfacePorts(rrlib::xml::tNode& node, size_t index);
+  void SaveInterfacePorts(rrlib::xml::tNode& node, tEditableInterfaceEntry& entry);
 
 //----------------------------------------------------------------------
 // Private fields and methods
 //----------------------------------------------------------------------
 private:
 
+  friend rrlib::serialization::tOutputStream& operator << (rrlib::serialization::tOutputStream& stream, const tEditableInterfaces& interfaces);
+  friend rrlib::serialization::tInputStream& operator >> (rrlib::serialization::tInputStream& stream, tEditableInterfaces& interfaces);
+
+  /*! List of editable interfaces */
+  std::vector<tEditableInterfaceEntry> editable_interfaces;
 };
 
 

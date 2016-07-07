@@ -33,6 +33,7 @@
 // External includes (system with <>, local with "")
 //----------------------------------------------------------------------
 #include "core/tRuntimeEnvironment.h"
+#include "core/tFrameworkElementTags.h"
 
 //----------------------------------------------------------------------
 // Internal includes with ""
@@ -66,27 +67,59 @@ typedef core::tFrameworkElement::tFlags tFlags;
 // Const values
 //----------------------------------------------------------------------
 static rrlib::rtti::tDataType<tEditableInterfaces> cTYPE;
+static const char* cEDITABLE_INTERFACE_TAG = "edit";
 
 //----------------------------------------------------------------------
 // Implementation
 //----------------------------------------------------------------------
 
+void tEditableInterfaces::AddInterface(core::tPortGroup& interface, tPortCreateOptions port_create_options, bool at_front)
+{
+  // Mark interface as editable
+  if (interface.IsReady())
+  {
+    FINROC_LOG_PRINT(WARNING, "Interface was already initialized before tagging it as editable");
+  }
+  core::tFrameworkElementTags::AddTag(interface, cEDITABLE_INTERFACE_TAG);
+
+  // Find parent component
+  core::tFrameworkElement* parent = &interface;
+  do
+  {
+    parent = parent->GetParent();
+    if (!parent)
+    {
+      throw std::runtime_error("Interface has no parent component");
+    }
+  }
+  while (!(core::tFrameworkElementTags::IsTagged(*parent, "module") || core::tFrameworkElementTags::IsTagged(*parent, "group")));
+
+  // Get or create annotation
+  tEditableInterfaces* annotation = parent->GetAnnotation<tEditableInterfaces>();
+  if (!annotation)
+  {
+    annotation = &parent->EmplaceAnnotation<tEditableInterfaces>();
+  }
+
+  // Add interface to list
+  if (at_front)
+  {
+    annotation->editable_interfaces.insert(annotation->editable_interfaces.begin(), tEditableInterfaceEntry(&interface, port_create_options));
+  }
+  else
+  {
+    annotation->editable_interfaces.emplace_back(&interface, port_create_options);
+  }
+}
+
 void tEditableInterfaces::LoadInterfacePorts(const rrlib::xml::tNode& node)
 {
   std::string name = node.GetStringAttribute("name");
-  for (size_t i = 0; i < static_interface_info.size(); i++)
+  for (auto & interface : editable_interfaces)
   {
-    if (name.compare(static_interface_info[i].name) == 0)
+    if (name == interface.first->GetName())
     {
-      core::tPortGroup* port_group = interface_array[i];
-
-      // possibly create interface
-      if (!port_group)
-      {
-        CreateInterface(GetAnnotated<core::tFrameworkElement>(), i, GetAnnotated<core::tFrameworkElement>()->IsReady());
-      }
-
-      tPortCreationList port_creation_list(*interface_array[i], GetDefaultPortFlags(i), static_interface_info[i].selectable_create_options);
+      tPortCreationList port_creation_list(*interface.first, interface.first->GetDefaultPortFlags(), interface.second);
       node >> port_creation_list;
       return;
     }
@@ -96,63 +129,46 @@ void tEditableInterfaces::LoadInterfacePorts(const rrlib::xml::tNode& node)
 
 void tEditableInterfaces::SaveAllNonEmptyInterfaces(rrlib::xml::tNode& parent_node)
 {
-  for (size_t i = 0; i < static_interface_info.size(); i++)
+  for (auto & interface : editable_interfaces)
   {
-    core::tPortGroup* port_group = interface_array[i];
-    if (port_group)
+    for (auto it = interface.first->ChildPortsBegin(); it != interface.first->ChildPortsEnd(); ++it)
     {
-      for (auto it = port_group->ChildPortsBegin(); it != port_group->ChildPortsEnd(); ++it)
+      if (it->GetFlag(tFlag::FINSTRUCTED))
       {
-        if (it->GetFlag(tFlag::FINSTRUCTED))
-        {
-          rrlib::xml::tNode& interface_node = parent_node.AddChildNode("interface");
-          SaveInterfacePorts(interface_node, i);
-          break;
-        }
+        rrlib::xml::tNode& interface_node = parent_node.AddChildNode("interface");
+        SaveInterfacePorts(interface_node, interface);
+        break;
       }
     }
   }
 }
 
-void tEditableInterfaces::SaveInterfacePorts(rrlib::xml::tNode& node, size_t index)
+void tEditableInterfaces::SaveInterfacePorts(rrlib::xml::tNode& node, tEditableInterfaceEntry& entry)
 {
-  const tStaticInterfaceInfo& static_info = static_interface_info[index];
-  core::tPortGroup* port_group = interface_array[index];
-
-  node.SetAttribute("name", static_info.name);
-  if (port_group)
-  {
-    tPortCreationList port_creation_list(*port_group, GetDefaultPortFlags(index), static_info.selectable_create_options);
-    node << port_creation_list;
-  }
+  node.SetAttribute("name", entry.first->GetName());
+  tPortCreationList port_creation_list(*entry.first, entry.first->GetDefaultPortFlags(), entry.second);
+  node << port_creation_list;
 }
 
 rrlib::serialization::tOutputStream& operator << (rrlib::serialization::tOutputStream& stream, const tEditableInterfaces& interfaces)
 {
   rrlib::thread::tLock lock(core::tRuntimeEnvironment::GetInstance().GetStructureMutex()); // no one should interfere
-  core::tPortGroup** current_interface_array = interfaces.interface_array;
-
-  stream.WriteByte(static_cast<uint8_t>(interfaces.static_interface_info.size())); // number of interfaces
-  for (size_t i = 0; i < interfaces.static_interface_info.size(); i++)
+  stream.WriteByte(static_cast<uint8_t>(interfaces.editable_interfaces.size())); // number of interfaces
+  for (auto & interface : interfaces.editable_interfaces)
   {
-    stream.WriteString(interfaces.static_interface_info[i].name);
-    stream.WriteBoolean(*current_interface_array);
-    if (*current_interface_array)
+    stream.WriteString(interface.first->GetName());
+    bool contains_ports = interface.first->ChildCount();
+    stream.WriteBoolean(contains_ports);
+    if (contains_ports)
     {
-      tPortCreationList port_creation_list(**current_interface_array, interfaces.GetDefaultPortFlags(i),
-                                           interfaces.static_interface_info[i].selectable_create_options);
+      tPortCreationList port_creation_list(*interface.first, interface.first->GetDefaultPortFlags(), interface.second);
       stream << port_creation_list;
     }
     else
     {
-      tPortCreateOptions selectable = interfaces.static_interface_info[i].selectable_create_options;
-      if (!interfaces.shared_interfaces[i])
-      {
-        selectable.Set(tPortCreateOption::SHARED, false);
-      }
+      tPortCreateOptions selectable = interface.second;
       stream << selectable.Raw();
     }
-    current_interface_array++;
   }
   return stream;
 }
@@ -160,50 +176,38 @@ rrlib::serialization::tOutputStream& operator << (rrlib::serialization::tOutputS
 rrlib::serialization::tInputStream& operator >> (rrlib::serialization::tInputStream& stream, tEditableInterfaces& interfaces)
 {
   rrlib::thread::tLock lock(core::tRuntimeEnvironment::GetInstance().GetStructureMutex()); // no one should interfere
-  core::tPortGroup** current_interface_array = interfaces.interface_array;
 
   size_t size = stream.ReadByte();
-  if (size != interfaces.static_interface_info.size())
+  if (size != interfaces.editable_interfaces.size())
   {
     throw std::runtime_error("Error deserializing tEditableInterfaces: Wrong number of interfaces");
   }
 
-  for (size_t i = 0; i < interfaces.static_interface_info.size(); i++)
+  for (auto & interface : interfaces.editable_interfaces)
   {
     std::string name = stream.ReadString();
-    if (name.compare(interfaces.static_interface_info[i].name) != 0)
+    if (name != interface.first->GetName())
     {
-      FINROC_LOG_PRINT_STATIC(WARNING, "Deserialized string ", name, " does not match expected ", interfaces.static_interface_info[i].name);
+      FINROC_LOG_PRINT_STATIC(WARNING, "Deserialized string ", name, " does not match expected ", interface.first->GetName());
     }
 
     bool interface_has_ports = stream.ReadBoolean();
     if (!interface_has_ports)
     {
       stream.ReadByte(); // selectable_create_options
-      if ((*current_interface_array))
+      for (auto it = interface.first->ChildPortsBegin(); it != interface.first->ChildPortsEnd(); ++it)
       {
-        for (auto it = (*current_interface_array)->ChildPortsBegin(); it != (*current_interface_array)->ChildPortsEnd(); ++it)
+        if (it->GetFlag(tFlag::FINSTRUCTED))
         {
-          if (it->GetFlag(tFlag::FINSTRUCTED))
-          {
-            it->ManagedDelete();
-          }
+          it->ManagedDelete();
         }
       }
     }
     else
     {
-      // possibly create interface
-      if (!(*current_interface_array))
-      {
-        interfaces.CreateInterface(interfaces.GetAnnotated<core::tFrameworkElement>(), i, interfaces.GetAnnotated<core::tFrameworkElement>()->IsReady());
-      }
-
-      tPortCreationList port_creation_list(**current_interface_array, interfaces.GetDefaultPortFlags(i),
-                                           interfaces.static_interface_info[i].selectable_create_options);
+      tPortCreationList port_creation_list(*interface.first, interface.first->GetDefaultPortFlags(), interface.second);
       stream >> port_creation_list;
     }
-    current_interface_array++;
   }
   return stream;
 }
