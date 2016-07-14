@@ -247,6 +247,35 @@ bool tFinstructable::IsResponsibleForConfigFileConnections(tFrameworkElement& ap
   return parameters::internal::tParameterInfo::IsFinstructableGroupResponsibleForConfigFileConnections(*GetFrameworkElement(), ap);
 }
 
+void tFinstructable::LoadParameter(const rrlib::xml::tNode& node, core::tAbstractPort& parameter_port)
+{
+  parameters::internal::tParameterInfo* pi = parameter_port.GetAnnotation<parameters::internal::tParameterInfo>();
+  bool outermost_group = GetFrameworkElement()->GetParent() == &(core::tRuntimeEnvironment::GetInstance());
+  if (!pi)
+  {
+    FINROC_LOG_PRINT(WARNING, "Port is not a parameter: '", parameter_port.GetQualifiedName(), "'. Parameter entry is not loaded.");
+  }
+  else
+  {
+    if (outermost_group && node.HasAttribute("cmdline") && (!IsResponsibleForConfigFileConnections(parameter_port)))
+    {
+      pi->SetCommandLineOption(node.GetStringAttribute("cmdline"));
+    }
+    else
+    {
+      pi->Deserialize(node, true, outermost_group);
+    }
+    try
+    {
+      pi->LoadValue();
+    }
+    catch (const std::exception& e)
+    {
+      FINROC_LOG_PRINT(WARNING, "Unable to load parameter value for '", parameter_port.GetQualifiedName(), "'. ", e);
+    }
+  }
+}
+
 void tFinstructable::LoadXml()
 {
   {
@@ -361,42 +390,22 @@ void tFinstructable::LoadXml()
             src_port->ConnectTo(*dest_port, core::tAbstractPort::tConnectDirection::AUTO, true);
           }
         }
-        else if (name == "parameter")
+        else if (name == "parameter") // legacy parameter info support
         {
           std::string param = node->GetStringAttribute("link");
           core::tAbstractPort* parameter = GetChildPort(param);
-          if (parameter == NULL)
+          if (!parameter)
           {
             FINROC_LOG_PRINT(WARNING, "Cannot set config entry, because parameter is not available: ", param);
           }
           else
           {
-            parameters::internal::tParameterInfo* pi = parameter->GetAnnotation<parameters::internal::tParameterInfo>();
-            bool outermost_group = GetFrameworkElement()->GetParent() == &(core::tRuntimeEnvironment::GetInstance());
-            if (pi == NULL)
-            {
-              FINROC_LOG_PRINT(WARNING, "Port is not parameter: ", param);
-            }
-            else
-            {
-              if (outermost_group && node->HasAttribute("cmdline") && (!IsResponsibleForConfigFileConnections(*parameter)))
-              {
-                pi->SetCommandLineOption(node->GetStringAttribute("cmdline"));
-              }
-              else
-              {
-                pi->Deserialize(*node, true, outermost_group);
-              }
-              try
-              {
-                pi->LoadValue();
-              }
-              catch (std::exception& e)
-              {
-                FINROC_LOG_PRINT(WARNING, "Unable to load parameter value: ", param, ". ", e);
-              }
-            }
+            LoadParameter(*node, *parameter);
           }
+        }
+        else if (name == "parameter_links")
+        {
+          ProcessParameterLinksNode(*node, *GetFrameworkElement());
         }
         else
         {
@@ -412,6 +421,44 @@ void tFinstructable::LoadXml()
   }
 }
 
+void tFinstructable::ProcessParameterLinksNode(const rrlib::xml::tNode& node, core::tFrameworkElement& element)
+{
+  for (auto it = node.ChildrenBegin(); it != node.ChildrenEnd(); ++it)
+  {
+    if (it->Name() == "element")
+    {
+      std::string name = it->GetStringAttribute("name");
+      core::tFrameworkElement* corresponding_element = element.GetChild(name);
+      if (corresponding_element)
+      {
+        ProcessParameterLinksNode(*it, *corresponding_element);
+      }
+      else
+      {
+        FINROC_LOG_PRINT(WARNING, "Cannot find '", element.GetQualifiedLink(), "/", name, "'. Parameter entries below are not loaded.");
+      }
+    }
+    else if (it->Name() == "parameter")
+    {
+      std::string name = it->GetStringAttribute("name");
+      core::tFrameworkElement* parameter_element = element.GetChild(name);
+      if (!parameter_element)
+      {
+        core::tFrameworkElement* parameters_interface = element.GetChild("Parameters");
+        parameter_element = parameters_interface ? parameters_interface->GetChild(name) : nullptr;
+      }
+      if (parameter_element && parameter_element->IsPort())
+      {
+        LoadParameter(*it, static_cast<core::tAbstractPort&>(*parameter_element));
+      }
+      else
+      {
+        FINROC_LOG_PRINT(WARNING, "Cannot find parameter '", element.GetQualifiedLink(), "/", name, "'. Parameter entry is not loaded.");
+      }
+    }
+  }
+}
+
 std::string tFinstructable::QualifyLink(const std::string& link, const std::string& this_group_link)
 {
   if (link[0] == '/')
@@ -419,6 +466,140 @@ std::string tFinstructable::QualifyLink(const std::string& link, const std::stri
     return link;
   }
   return this_group_link + link;
+}
+
+bool tFinstructable::SaveParameterConfigEntries(rrlib::xml::tNode& node, core::tFrameworkElement& element)
+{
+  // Get alphabetically sorted list of children
+  std::vector<core::tFrameworkElement*> child_elements;
+  std::vector<core::tAbstractPort*> parameter_ports;
+  for (auto it = element.ChildrenBegin(); it != element.ChildrenEnd(); ++it)
+  {
+    if (it->IsReady())
+    {
+      if (it->GetFlag(tFlag::INTERFACE) && it->GetName() == "Parameters")
+      {
+        for (auto parameter_it = it->ChildrenBegin(); parameter_it != it->ChildrenEnd(); ++parameter_it)
+        {
+          if (parameter_it->IsReady() && parameter_it->IsPort() && parameter_it->GetAnnotation<parameters::internal::tParameterInfo>())
+          {
+            parameter_ports.push_back(&static_cast<core::tAbstractPort&>(*parameter_it));
+          }
+        }
+      }
+      else if (it->IsPort() && it->GetAnnotation<parameters::internal::tParameterInfo>())
+      {
+        parameter_ports.push_back(&static_cast<core::tAbstractPort&>(*it));
+      }
+      else
+      {
+        child_elements.push_back(&(*it));
+      }
+    }
+  }
+
+  struct
+  {
+    bool operator()(core::tFrameworkElement* a, core::tFrameworkElement* b)
+    {
+      return a->GetName() < b->GetName();
+    }
+  } comparator;
+  std::sort(child_elements.begin(), child_elements.end(), comparator);
+  std::sort(parameter_ports.begin(), parameter_ports.end(), comparator);
+
+  // Save parameters first
+  bool result = false;
+  for (core::tAbstractPort * port : parameter_ports)
+  {
+    bool outermost_group = GetFrameworkElement()->GetParent() == &(core::tRuntimeEnvironment::GetInstance());
+    parameters::internal::tParameterInfo* info = port->GetAnnotation<parameters::internal::tParameterInfo>();
+    bool is_responsible_for_parameter_links = IsResponsibleForConfigFileConnections(*port);
+
+    if (info && info->HasNonDefaultFinstructInfo() && (is_responsible_for_parameter_links || (outermost_group && info->GetCommandLineOption().length())))
+    {
+      // Save Parameter
+      rrlib::xml::tNode& parameter_node = node.AddChildNode("parameter");
+      parameter_node.SetAttribute("name", port->GetName());
+
+      if (!is_responsible_for_parameter_links)
+      {
+        parameter_node.SetAttribute("cmdline", info->GetCommandLineOption());
+      }
+      else
+      {
+        info->Serialize(parameter_node, true, outermost_group);
+      }
+      result = true;
+    }
+  }
+
+  // Process child elements
+  for (core::tFrameworkElement * child : child_elements)
+  {
+    rrlib::xml::tNode& child_node = node.AddChildNode("element");
+    child_node.SetAttribute("name", child->GetName());
+    bool sub_result = SaveParameterConfigEntries(child_node, *child);
+    result |= sub_result;
+    if (!sub_result)
+    {
+      node.RemoveChildNode(child_node);
+    }
+  }
+  return result;
+
+  /*for (auto it = GetFrameworkElement()->SubElementsBegin(); it != GetFrameworkElement()->SubElementsEnd(); ++it)
+  {
+    if ((!it->IsPort()) || (!it->IsReady()))
+    {
+      continue;
+    }
+
+    core::tAbstractPort& port = static_cast<core::tAbstractPort&>(*it);
+    bool outermost_group = GetFrameworkElement()->GetParent() == &(core::tRuntimeEnvironment::GetInstance());
+    parameters::internal::tParameterInfo* info = port.GetAnnotation<parameters::internal::tParameterInfo>();
+
+    if (info && info->HasNonDefaultFinstructInfo() && (IsResponsibleForConfigFileConnections(port) || (outermost_group && info->GetCommandLineOption().length())))
+    {
+      bool parameter_interface = port.GetParent()->GetFlag(tFlag::INTERFACE) || port.GetParent()->GetName() == "Parameters"; // TODO: remove the latter as soon as
+      core::tFrameworkElement* target_hierarchy_element = (parameter_interface && port.GetParent()->GetParent()) ? port.GetParent()->GetParent() : port.GetParent();
+
+      // Possibly move up hierarchy in XML
+      while (!(target_hierarchy_element == current_hierarchy_element || target_hierarchy_element->IsChildOf(*current_hierarchy_element)))
+      {
+        current_hierarchy_element = current_hierarchy_element->GetParent();
+        current_parameter_links_node = &current_parameter_links_node->Parent();
+      }
+      // Possibly create hierarchy in XML
+      std::vector<core::tFrameworkElement*> elements_to_add;
+      core::tFrameworkElement* element_to_add = target_hierarchy_element;
+      while (element_to_add != current_hierarchy_element)
+      {
+        elements_to_add.push_back(element_to_add);
+        element_to_add = element_to_add->GetParent();
+      }
+      for (auto it = elements_to_add.rbegin(); it != elements_to_add.rend(); ++it)
+      {
+        current_parameter_links_node = &current_parameter_links_node->AddChildNode("element");
+        current_parameter_links_node->SetAttribute("name", (*it)->GetName());
+      }
+      current_hierarchy_element = target_hierarchy_element;
+
+      // Save Parameter
+      rrlib::xml::tNode& parameter_node = current_parameter_links_node->AddChildNode("parameter");
+      parameter_node.SetAttribute("name", port.GetName());
+
+      if (!IsResponsibleForConfigFileConnections(port))
+      {
+        parameter_node.SetAttribute("cmdline", info->GetCommandLineOption());
+      }
+      else
+      {
+        info->Serialize(parameter_node, true, outermost_group);
+      }
+    }
+  }
+  */
 }
 
 void tFinstructable::SaveXml()
@@ -552,38 +733,7 @@ void tFinstructable::SaveXml()
       }
 
       // Save parameter config entries
-      for (auto it = GetFrameworkElement()->SubElementsBegin(); it != GetFrameworkElement()->SubElementsEnd(); ++it)
-      {
-        if ((!it->IsPort()) || (!it->IsReady()))
-        {
-          continue;
-        }
-        core::tAbstractPort& ap = static_cast<core::tAbstractPort&>(*it);
-
-        // second pass?
-        bool outermostGroup = GetFrameworkElement()->GetParent() == &(core::tRuntimeEnvironment::GetInstance());
-        parameters::internal::tParameterInfo* info = ap.GetAnnotation<parameters::internal::tParameterInfo>();
-
-        if (info != NULL && info->HasNonDefaultFinstructInfo())
-        {
-          if (!IsResponsibleForConfigFileConnections(ap))
-          {
-
-            if (outermostGroup && info->GetCommandLineOption().length() > 0)
-            {
-              rrlib::xml::tNode& config = root.AddChildNode("parameter");
-              config.SetAttribute("link", GetEdgeLink(ap, link_tmp));
-              config.SetAttribute("cmdline", info->GetCommandLineOption());
-            }
-
-            continue;
-          }
-
-          rrlib::xml::tNode& config = root.AddChildNode("parameter");
-          config.SetAttribute("link", GetEdgeLink(ap, link_tmp));
-          info->Serialize(config, true, outermostGroup);
-        }
-      }
+      SaveParameterConfigEntries(root.AddChildNode("parameter_links"), *GetFrameworkElement());
 
       // add dependencies
       if (dependencies_tmp.size() > 0)

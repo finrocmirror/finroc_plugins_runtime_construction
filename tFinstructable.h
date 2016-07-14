@@ -230,6 +230,22 @@ private:
   bool IsResponsibleForConfigFileConnections(core::tFrameworkElement& ap) const;
 
   /*!
+   * Helper function for loading parameter links
+   *
+   * \param node Parameter XML node
+   * \param parameter_port Abstract Port that should be a parameter
+   */
+  void LoadParameter(const rrlib::xml::tNode& node, core::tAbstractPort& parameter_port);
+
+  /*!
+   * Recursive helper function for loading parameter_links section of XML file
+   *
+   * \param node Current XML node
+   * \param element Framework element corresponding to node
+   */
+  void ProcessParameterLinksNode(const rrlib::xml::tNode& node, core::tFrameworkElement& element);
+
+  /*!
    * Make fully-qualified link from relative one
    *
    * \param link Relative Link
@@ -237,6 +253,15 @@ private:
    * \return Fully-qualified link
    */
   std::string QualifyLink(const std::string& link, const std::string& this_group_link);
+
+  /*!
+   * Recursive helper function for saving parameter_links section of XML file
+   *
+   * \param node Current XML node
+   * \param element Framework element corresponding to node
+   * \result True if any parameters were saved below node
+   */
+  bool SaveParameterConfigEntries(rrlib::xml::tNode& node, core::tFrameworkElement& element);
 
   /*!
    * Serialize children of specified framework element
