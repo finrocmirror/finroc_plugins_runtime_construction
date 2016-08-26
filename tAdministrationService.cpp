@@ -140,15 +140,15 @@ void tAdministrationService::Connect(int source_port_handle, int destination_por
   // Connect
   if (source_port->GetFlag(cVOLATILE) && (!destination_port->GetFlag(cVOLATILE)))
   {
-    destination_port->ConnectTo(source_port->GetQualifiedLink(), core::tAbstractPort::tConnectDirection::AUTO, true);
+    destination_port->ConnectTo(source_port->GetQualifiedLink(), core::tConnectionFlag::FINSTRUCTED | core::tConnectionFlag::RECONNECT);
   }
   else if (destination_port->GetFlag(cVOLATILE) && (!source_port->GetFlag(cVOLATILE)))
   {
-    source_port->ConnectTo(destination_port->GetQualifiedLink(), core::tAbstractPort::tConnectDirection::AUTO, true);
+    source_port->ConnectTo(destination_port->GetQualifiedLink(), core::tConnectionFlag::FINSTRUCTED | core::tConnectionFlag::RECONNECT);
   }
   else
   {
-    source_port->ConnectTo(*destination_port, core::tAbstractPort::tConnectDirection::AUTO, true);
+    source_port->ConnectTo(*destination_port, core::tConnectionFlag::FINSTRUCTED);
   }
 
   // Connection check
@@ -303,8 +303,8 @@ rrlib::serialization::tMemoryBuffer tAdministrationService::GetAnnotation(int el
     {
       rrlib::serialization::tMemoryBuffer result_buffer;
       rrlib::serialization::tOutputStream output_stream(result_buffer, rrlib::serialization::tTypeEncoding::NAMES);
-      //output_stream << result->GetType();
-      type.Serialize(output_stream, result);
+      rrlib::rtti::tTypedConstPointer annotation_pointer(result, type);
+      annotation_pointer.Serialize(output_stream);
       output_stream.Close();
       return result_buffer;
     }
@@ -600,7 +600,8 @@ void tAdministrationService::SetAnnotation(int element_handle, const rrlib::seri
       }
       else
       {
-        type.Deserialize(input_stream, annotation);
+        rrlib::rtti::tTypedPointer annotation_pointer(annotation, type);
+        annotation_pointer.Deserialize(input_stream);
 
         // In case a new config entry is set (from finstruct), load it immediately
         if (type.GetRttiName() == typeid(parameters::internal::tParameterInfo).name())

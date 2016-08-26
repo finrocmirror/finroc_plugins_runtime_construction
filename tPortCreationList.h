@@ -91,7 +91,7 @@ constexpr tPortCreateOptions operator | (tPortCreateOption option1, tPortCreateO
  * Is only meant to be used in StaticParameters.
  * For this reason, it is not real-time capable and a little more memory-efficient.
  */
-class tPortCreationList : public rrlib::rtti::tIsListType<false, false>, public rrlib::util::tNoncopyable
+class tPortCreationList : public rrlib::util::tNoncopyable
 {
   typedef core::tFrameworkElement::tFlag tFlag;
   typedef core::tFrameworkElement::tFlags tFlags;
@@ -111,6 +111,9 @@ public:
    */
   tPortCreationList(core::tFrameworkElement& port_group, tFlags flags,
                     const tPortCreateOptions& selectable_create_options, bool ports_flagged_finstructed = true);
+
+  tPortCreationList(tPortCreationList &&) = delete;
+  tPortCreationList& operator=(tPortCreationList &&) = delete;
 
   /*!
    * Add entry to list

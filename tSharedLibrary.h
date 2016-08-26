@@ -76,7 +76,7 @@ class tSharedLibrary
 //----------------------------------------------------------------------
 public:
 
-  /**
+  /*!
    * \param name Name of shared library. Can be platform-dependent (lib*.so on Linux) or platform-independent.
    */
   tSharedLibrary(const std::string& name);
@@ -84,15 +84,23 @@ public:
 
   tSharedLibrary();
 
-  /**
+  /*!
    * \return Path name if the name provided to the constructor included a path (otherwise empty string)
    */
-  std::string GetPath()
+  std::string GetPath() const
   {
     return path;
   }
 
-  /**
+  /*!
+   * \return Whether this object contains valid information on a shared library
+   */
+  bool IsValid() const
+  {
+    return name.length();
+  }
+
+  /*!
    * \param platform_dependent Return platform-dependent name of shared library? (lib*.so on Linux)
    * \return Returns file name of shared library (without path)
    */
@@ -107,10 +115,10 @@ private:
   friend bool operator==(const tSharedLibrary& lhs, const tSharedLibrary& rhs);
   friend bool operator<(const tSharedLibrary& lhs, const tSharedLibrary& rhs);
 
-  /** Platform-independent name */
+  /*! Platform-independent name */
   std::string name;
 
-  /** Path name if the name provided to the constructor included a path (otherwise empty string) */
+  /*! Path name if the name provided to the constructor included a path (otherwise empty string) */
   std::string path;
 };
 

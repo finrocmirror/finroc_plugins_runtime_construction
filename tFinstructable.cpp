@@ -36,7 +36,7 @@
 #include "rrlib/util/string.h"
 #include "core/file_lookup.h"
 #include "core/tRuntimeEnvironment.h"
-#include "core/internal/tLinkEdge.h"
+#include "core/internal/tByStringConnector.h"
 #include "plugins/parameters/internal/tParameterInfo.h"
 
 //----------------------------------------------------------------------
@@ -82,9 +82,6 @@ static rrlib::thread::tThread* saving_thread = NULL;
 /*! Temporary variable for saving: .so files that should be loaded prior to instantiating this group */
 static std::set<tSharedLibrary> dependencies_tmp;
 
-/*! Number of types at startup */
-static int startup_type_count = 0;
-
 /*! Loaded finroc libraries at startup */
 static std::set<tSharedLibrary> startup_loaded_finroc_libs;
 
@@ -107,13 +104,10 @@ void tFinstructable::AddDependency(const tSharedLibrary& dependency)
 
 void tFinstructable::AddDependency(const rrlib::rtti::tType& dt)
 {
-  if (dt.GetUid() >= startup_type_count)
+  tSharedLibrary shared_library = GetDataTypeDependency(dt);
+  if (shared_library.IsValid())
   {
-    std::string binary(dt.GetBinary(false));
-    if (binary.length() > 0)
-    {
-      AddDependency(binary);
-    }
+    AddDependency(shared_library);
   }
 }
 
@@ -379,15 +373,15 @@ void tFinstructable::LoadXml()
           }
           else if (src_port == NULL || src_port->GetFlag(tFlag::VOLATILE))    // source volatile
           {
-            dest_port->ConnectTo(QualifyLink(src, link_tmp), core::tAbstractPort::tConnectDirection::AUTO, true);
+            dest_port->ConnectTo(QualifyLink(src, link_tmp), core::tConnectionFlag::FINSTRUCTED | core::tConnectionFlag::RECONNECT);
           }
           else if (dest_port == NULL || dest_port->GetFlag(tFlag::VOLATILE))    // destination volatile
           {
-            src_port->ConnectTo(QualifyLink(dest, link_tmp), core::tAbstractPort::tConnectDirection::AUTO, true);
+            src_port->ConnectTo(QualifyLink(dest, link_tmp), core::tConnectionFlag::FINSTRUCTED | core::tConnectionFlag::RECONNECT);
           }
           else
           {
-            src_port->ConnectTo(*dest_port, core::tAbstractPort::tConnectDirection::AUTO, true);
+            src_port->ConnectTo(*dest_port, core::tConnectionFlag::FINSTRUCTED);
           }
         }
         else if (name == "parameter") // legacy parameter info support
@@ -638,98 +632,107 @@ void tFinstructable::SaveXml()
       // serialize framework elements
       SerializeChildren(root, *GetFrameworkElement());
 
-      // serialize edges
-      std::string link_tmp = GetFrameworkElement()->GetQualifiedName() + "/";
+      // serialize edges (sorted by port links (we do not want changes in finstruct files depending on whether or not an optional/volatile connector exists))
+      std::string this_qualified_link = GetFrameworkElement()->GetQualifiedName() + "/";
+      std::map<std::pair<std::string, std::string>, std::pair<core::tConnector*, core::internal::tByStringConnector*>> connector_map;
+      std::set<core::tConnector*> skip_connectors;
+      bool this_is_outermost_composite_component = GetFrameworkElement()->GetParentWithFlags(tFlag::FINSTRUCTABLE_GROUP) == nullptr;
+
+      // First pass: Get ByStringConnectors and fill skip_connectors list
       for (auto it = GetFrameworkElement()->SubElementsBegin(); it != GetFrameworkElement()->SubElementsEnd(); ++it)
       {
         if ((!it->IsPort()) || (!it->IsReady()))
         {
           continue;
         }
-        core::tAbstractPort& ap = static_cast<core::tAbstractPort&>(*it);
+        core::tAbstractPort& port = static_cast<core::tAbstractPort&>(*it);
 
-        // first pass
-        for (auto it = ap.OutgoingConnectionsBegin(); it != ap.OutgoingConnectionsEnd(); ++it) // only outgoing edges => we don't get any edges double
+        // Get ByStringConnectors first
+        if (port.by_string_connectors)
         {
-          core::tAbstractPort& ap2 = *it;
-          if (!ap.IsEdgeFinstructed(ap2))
+          tFrameworkElement* port_parent_group = port.GetParentWithFlags(tFlag::FINSTRUCTABLE_GROUP);
+          for (auto & connector : (*port.by_string_connectors))
           {
-            continue;
-          }
-
-          // save edge?
-          // check1: different finstructed elements as parent?
-          if (ap.GetParentWithFlags(tFlag::FINSTRUCTED) == ap2.GetParentWithFlags(tFlag::FINSTRUCTED))
-          {
-            // TODO: check why continue causes problems here
-            // continue;
-          }
-
-          // check2: their deepest common finstructable_group parent is this
-          tFrameworkElement* common_parent = ap.GetParent();
-          while (!ap2.IsChildOf(*common_parent))
-          {
-            common_parent = common_parent->GetParent();
-          }
-          tFrameworkElement* common_finstructable_parent = common_parent->GetFlag(tFlag::FINSTRUCTABLE_GROUP) ? common_parent : common_parent->GetParentWithFlags(tFlag::FINSTRUCTABLE_GROUP);
-          if (common_finstructable_parent != GetFrameworkElement())
-          {
-            continue;
-          }
-
-          // check3: only save non-volatile connections in this step (finstruct creates link edges for volatile ports)
-          if (ap.GetFlag(tFlag::VOLATILE) || ap2.GetFlag(tFlag::VOLATILE))
-          {
-            continue;
-          }
-
-          // save edge
-          rrlib::xml::tNode& edge = root.AddChildNode("edge");
-          edge.SetAttribute("src", GetEdgeLink(ap, link_tmp));
-          edge.SetAttribute("dest", GetEdgeLink(ap2, link_tmp));
-        }
-
-        // serialize link edges
-        if (ap.link_edges)
-        {
-          // only process relevant ports
-          tFrameworkElement* port_group = ap.GetParentWithFlags(tFlag::FINSTRUCTABLE_GROUP);
-          tFrameworkElement* parent_group = port_group ? port_group->GetParentWithFlags(tFlag::FINSTRUCTABLE_GROUP) : nullptr;
-
-          if (port_group && (port_group == GetFrameworkElement() || parent_group == GetFrameworkElement()))
-          {
-            std::string port_group_link = port_group->GetQualifiedLink();
-
-            for (size_t i = 0u; i < ap.link_edges->size(); i++)
+            if (!connector->Flags().Get(core::tConnectionFlag::FINSTRUCTED))
             {
-              core::internal::tLinkEdge* le = (*ap.link_edges)[i];
-              if (!le->IsFinstructed())
-              {
-                continue;
-              }
-
-              // obtain link
-              bool source_link = le->GetSourceLink().length() > 0;
-              std::string link = source_link ? le->GetSourceLink() : le->GetTargetLink();
-
-              // obtain group to save port in
-              bool link_to_inside = rrlib::util::StartsWith(link, port_group_link);
-              tFrameworkElement* group_to_save_in = (link_to_inside || (!parent_group)) ? port_group : parent_group;
-              if (group_to_save_in != GetFrameworkElement())
-              {
-                // save link in another group
-                continue;
-              }
-
-              // save edge
-              link = GetEdgeLink(link, link_tmp);
-              rrlib::xml::tNode& edge = root.AddChildNode("edge");
-              std::string this_port_link = GetEdgeLink(ap, link_tmp);
-              edge.SetAttribute("src", source_link ? link : this_port_link);
-              edge.SetAttribute("dest", source_link ? this_port_link : link);
+              continue;
             }
+            if (connector->GetConnection())
+            {
+              skip_connectors.insert(connector->GetConnection());
+            }
+
+            // connectors should be saved in innermost composite component that contains both ports (common parent); if there is no such port, then save in outermost composite component
+            bool source_link = connector->GetPortReferences()[0].link.length();
+            std::string link = source_link ? connector->GetPortReferences()[0].link : connector->GetPortReferences()[1].link;
+            tFrameworkElement* common_parent = port_parent_group;
+            while (common_parent && (!rrlib::util::StartsWith(link, common_parent->GetQualifiedName())))
+            {
+              common_parent = common_parent->GetParentWithFlags(tFlag::FINSTRUCTABLE_GROUP);
+            }
+            if (common_parent != GetFrameworkElement() && (!(this_is_outermost_composite_component && common_parent == nullptr)))
+            {
+              // save connector in another group
+              continue;
+            }
+
+            std::string this_port_link = GetEdgeLink(port, this_qualified_link);
+            std::pair<std::string, std::string> key(source_link ? link : this_port_link, source_link ? this_port_link : link);
+            std::pair<core::tConnector*, core::internal::tByStringConnector*> value(connector->GetConnection(), connector.get());
+            connector_map.emplace(key, value);
           }
         }
+      }
+
+      // Second pass: Plain connectors
+      for (auto it = GetFrameworkElement()->SubElementsBegin(); it != GetFrameworkElement()->SubElementsEnd(); ++it)
+      {
+        if ((!it->IsPort()) || (!it->IsReady()))
+        {
+          continue;
+        }
+        core::tAbstractPort& port = static_cast<core::tAbstractPort&>(*it);
+        tFrameworkElement* port_parent_group = port.GetParentWithFlags(tFlag::FINSTRUCTABLE_GROUP);
+
+        for (auto it = port.OutgoingConnectionsBegin(); it != port.OutgoingConnectionsEnd(); ++it) // only outgoing edges => we don't get any edges twice
+        {
+          // possibly save connector?
+
+          // only save finstructed edges
+          if (!it->Flags().Get(core::tConnectionFlag::FINSTRUCTED))
+          {
+            continue;
+          }
+          // only save edges that are not attached to a tByStringConnector => we don't get any edges twice
+          if (skip_connectors.find(&(*it)) != skip_connectors.end())
+          {
+            continue;
+          }
+
+          // connectors should be saved in innermost composite component that contains both ports (common parent); if there is no such port, then save in outermost composite component
+          tFrameworkElement* common_parent = port_parent_group;
+          while (common_parent && (!it->Destination().IsChildOf(*common_parent)))
+          {
+            common_parent = common_parent->GetParentWithFlags(tFlag::FINSTRUCTABLE_GROUP);
+          }
+          if (common_parent != GetFrameworkElement() && (!(this_is_outermost_composite_component && common_parent == nullptr)))
+          {
+            // save connector in another group
+            continue;
+          }
+
+          std::pair<std::string, std::string> key(GetEdgeLink(port, this_qualified_link), GetEdgeLink(it->Destination(), this_qualified_link));
+          std::pair<core::tConnector*, core::internal::tByStringConnector*> value(&(*it), nullptr);
+          connector_map.emplace(key, value);
+        }
+      }
+
+      for (auto & entry : connector_map)
+      {
+        rrlib::xml::tNode& edge = root.AddChildNode("edge"); // TODO: "connector"?
+        edge.SetAttribute("src", entry.first.first);
+        edge.SetAttribute("dest", entry.first.second);
+        // TODO: save more info  (flags optional & reconnect)
       }
 
       // Save parameter config entries
@@ -855,7 +858,6 @@ void tFinstructable::SetFinstructed(tFrameworkElement& fe, tCreateFrameworkEleme
 
 void tFinstructable::StaticInit()
 {
-  startup_type_count = rrlib::rtti::tType::GetTypeCount();
   startup_loaded_finroc_libs = GetLoadedFinrocLibraries();
 }
 

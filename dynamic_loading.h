@@ -81,6 +81,17 @@ std::set<tSharedLibrary> GetAvailableFinrocLibraries();
 tSharedLibrary GetBinary(void* addr);
 
 /*!
+ * Get (any) dynamically loaded shared library where provided type was statically initialized.
+ * Utility function for filling dependencies section in finstructable groups.
+ * To identify the correct .so file, this function applies heuristics: It matches the type's namespace against the loaded so file names (so file with shortest name is selected).
+ *   (=> libraries statically initializing data types should do this in their base libraries (and use type names with namespace) in order to support this mechanism)
+ *
+ * \param type Type to return library for
+ * \return Shared library. Empty if data type was not initialized during dynamic loading (or no .so file could be identified).
+ */
+tSharedLibrary GetDataTypeDependency(const rrlib::rtti::tType& type);
+
+/*!
  * \return Returns vector with all libfinroc*.so and librrlib*.so files loaded by current process.
  */
 std::set<tSharedLibrary> GetLoadedFinrocLibraries();
