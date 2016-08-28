@@ -106,6 +106,17 @@ public:
   void Connect(int source_port_handle, int destination_port_handle);
 
   /*!
+   * Connect source port to destination port with connect options
+   * (new connect method)
+   *
+   * \param source_port_handle Handle of source port
+   * \param destination_port_handle Handle of destination port
+   * \param connect_options Connect options
+   * \return Returns error message if connecting failed. On success an empty string is returned.
+   */
+  std::string ConnectPorts(int source_port_handle, int destination_port_handle, const core::tConnectOptions& connect_options);
+
+  /*!
    * Instantiates port for administration
    */
   static void CreateAdministrationPort();

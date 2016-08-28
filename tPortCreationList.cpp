@@ -234,7 +234,7 @@ tPortCreationList::tEntry::tEntry(const std::string& name, const std::string& ty
 {
   rrlib::serialization::tStringInputStream sis(type);
   sis >> this->type;
-  assert(this->type.Get() != NULL);
+  assert(this->type.Get());
 }
 
 rrlib::serialization::tOutputStream& operator << (rrlib::serialization::tOutputStream& stream, const tPortCreationList& list)
@@ -296,7 +296,7 @@ rrlib::serialization::tInputStream& operator >> (rrlib::serialization::tInputStr
       std::string name = stream.ReadString();
       std::string type_name = stream.ReadString();
       rrlib::rtti::tType type = rrlib::rtti::tType::FindType(type_name);
-      if (type == NULL)
+      if (!type)
       {
         FINROC_LOG_PRINT_STATIC(ERROR, "Error checking port from port creation deserialization: Type " + type_name + " not available");
         throw std::runtime_error("Error checking port from port creation list deserialization: Type " + type_name + " not available");
@@ -390,7 +390,7 @@ const rrlib::xml::tNode& operator >> (const rrlib::xml::tNode& node, tPortCreati
     }
     std::string dt_name = port->GetStringAttribute("type");
     rrlib::rtti::tType dt = rrlib::rtti::tType::FindType(dt_name);
-    if (dt == NULL)
+    if (!dt)
     {
       FINROC_LOG_PRINT_STATIC(ERROR, "Error checking port from port creation deserialization: Type " + dt_name + " not available");
       throw std::runtime_error("Error checking port from port creation list deserialization: Type " + dt_name + " not available");

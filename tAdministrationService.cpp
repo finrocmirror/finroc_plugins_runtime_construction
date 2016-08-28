@@ -79,7 +79,7 @@ static rpc_ports::tRPCInterfaceType<tAdministrationService> cTYPE("Administratio
     &tAdministrationService::GetModuleLibraries, &tAdministrationService::GetParameterInfo, &tAdministrationService::IsExecuting,
     &tAdministrationService::LoadModuleLibrary, &tAdministrationService::PauseExecution, &tAdministrationService::SaveAllFinstructableFiles,
     &tAdministrationService::SaveFinstructableGroup, &tAdministrationService::SetAnnotation, &tAdministrationService::SetPortValue,
-    &tAdministrationService::StartExecution, &tAdministrationService::NetworkConnect); // NetworkConnect is last in order to not break binary compatibility
+    &tAdministrationService::StartExecution, &tAdministrationService::NetworkConnect, &tAdministrationService::ConnectPorts); // NetworkConnect etc. are last in order to not break binary compatibility
 
 static tAdministrationService administration_service;
 
@@ -124,13 +124,21 @@ tAdministrationService::~tAdministrationService()
 
 void tAdministrationService::Connect(int source_port_handle, int destination_port_handle)
 {
+  ConnectPorts(source_port_handle, destination_port_handle, core::tConnectOptions(core::tConnectionFlag::FINSTRUCTED));
+}
+
+std::string tAdministrationService::ConnectPorts(int source_port_handle, int destination_port_handle, const core::tConnectOptions& connect_options)
+{
+  std::string result;
   auto cVOLATILE = core::tFrameworkElement::tFlag::VOLATILE;
   core::tAbstractPort* source_port = Runtime().GetPort(source_port_handle);
   core::tAbstractPort* destination_port = Runtime().GetPort(destination_port_handle);
+  core::tConnectOptions options = connect_options;
   if ((!source_port) || (!destination_port))
   {
-    FINROC_LOG_PRINT(WARNING, "At least one port to be connected does not exist");
-    return;
+    result = "At least one port to be connected does not exist";
+    FINROC_LOG_PRINT(WARNING, result);
+    return result;
   }
   if (source_port->GetFlag(cVOLATILE) && destination_port->GetFlag(cVOLATILE))
   {
@@ -138,28 +146,41 @@ void tAdministrationService::Connect(int source_port_handle, int destination_por
   }
 
   // Connect
-  if (source_port->GetFlag(cVOLATILE) && (!destination_port->GetFlag(cVOLATILE)))
+  try
   {
-    destination_port->ConnectTo(source_port->GetQualifiedLink(), core::tConnectionFlag::FINSTRUCTED | core::tConnectionFlag::RECONNECT);
+    if (source_port->GetFlag(cVOLATILE) && (!destination_port->GetFlag(cVOLATILE)))
+    {
+      options.flags |= core::tConnectionFlag::RECONNECT;
+      destination_port->ConnectTo(source_port->GetQualifiedLink(), options);
+    }
+    else if (destination_port->GetFlag(cVOLATILE) && (!source_port->GetFlag(cVOLATILE)))
+    {
+      options.flags |= core::tConnectionFlag::RECONNECT;
+      source_port->ConnectTo(destination_port->GetQualifiedLink(), options);
+    }
+    else
+    {
+      source_port->ConnectTo(*destination_port, options);
+    }
   }
-  else if (destination_port->GetFlag(cVOLATILE) && (!source_port->GetFlag(cVOLATILE)))
+  catch (const std::exception& e)
   {
-    source_port->ConnectTo(destination_port->GetQualifiedLink(), core::tConnectionFlag::FINSTRUCTED | core::tConnectionFlag::RECONNECT);
-  }
-  else
-  {
-    source_port->ConnectTo(*destination_port, core::tConnectionFlag::FINSTRUCTED);
+    result = "Could not connect ports '" + source_port->GetQualifiedName() + "' and '" + destination_port->GetQualifiedName() + "'. Reason: " + e.what();
+    FINROC_LOG_PRINT(WARNING, result);
+    return result;
   }
 
   // Connection check
   if (!source_port->IsConnectedTo(*destination_port))
   {
-    FINROC_LOG_PRINT(WARNING, "Could not connect ports '", source_port->GetQualifiedName(), "' and '", destination_port->GetQualifiedName(), "'.");
+    result = "Could not connect ports '" + source_port->GetQualifiedName() + "' and '" + destination_port->GetQualifiedName() + "' (see output of connected Finroc program for details).";
+    FINROC_LOG_PRINT(WARNING, result);
   }
   else
   {
     FINROC_LOG_PRINT(USER, "Connected ports ", source_port->GetQualifiedName(), " ", destination_port->GetQualifiedName());
   }
+  return result;
 }
 
 void tAdministrationService::CreateAdministrationPort()
@@ -296,7 +317,7 @@ rrlib::serialization::tMemoryBuffer tAdministrationService::GetAnnotation(int el
 {
   core::tFrameworkElement* element = Runtime().GetElement(element_handle);
   rrlib::rtti::tType type = rrlib::rtti::tType::FindType(annotation_type_name);
-  if (element && element->IsReady() && type != NULL)
+  if (element && element->IsReady() && type)
   {
     core::tAnnotation* result = element->GetAnnotation(type.GetRttiName());
     if (result)
@@ -583,7 +604,7 @@ void tAdministrationService::SetAnnotation(int element_handle, const rrlib::seri
     rrlib::serialization::tInputStream input_stream(serialized_annotation, rrlib::serialization::tTypeEncoding::NAMES);
     rrlib::rtti::tType type;
     input_stream >> type;
-    if (type == NULL)
+    if (!type)
     {
       FINROC_LOG_PRINT(ERROR, "Data type not available. Canceling setting of annotation.");
     }
