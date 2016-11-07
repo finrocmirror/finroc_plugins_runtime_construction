@@ -85,6 +85,14 @@ tSharedLibrary::tSharedLibrary(const std::string& library_name) :
   {
     name = name.substr(3, name.length() - 6);
   }
+  else if (name.length() > 7 && name.substr(0, 3) == "lib")
+  {
+    auto index = name.rfind(".so.");
+    if (index != std::string::npos)
+    {
+      name = name.substr(3, index - 3);
+    }
+  }
 }
 
 tSharedLibrary::tSharedLibrary(const char* library_name) :
