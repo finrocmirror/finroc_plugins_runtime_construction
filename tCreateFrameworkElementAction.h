@@ -78,7 +78,11 @@ class tCreateFrameworkElementAction : private rrlib::util::tNoncopyable
 //----------------------------------------------------------------------
 public:
 
+  typedef rrlib::serialization::tRegister<tCreateFrameworkElementAction*, 64, 128, uint16_t> tRegister;
+
   tCreateFrameworkElementAction();
+
+  virtual ~tCreateFrameworkElementAction() = default;
 
   /*!
    * Create Module (or Group)
@@ -88,12 +92,17 @@ public:
    * \param params Parameters
    * \return Created Module (or Group)
    */
-  virtual core::tFrameworkElement* CreateModule(core::tFrameworkElement* parent, const std::string& name, tConstructorParameters* params = NULL) const = 0;
+  virtual core::tFrameworkElement* CreateModule(core::tFrameworkElement* parent, const std::string& name, tConstructorParameters* params = nullptr) const = 0;
+
+  /*!
+   * \return Returns .so file in which address provided as argument is found by dladdr
+   */
+  tSharedLibrary GetBinary(void* addr);
 
   /*!
    * \return List with framework element types that can be instantiated in this runtime using this standard mechanism
    */
-  static const std::vector<tCreateFrameworkElementAction*>& GetConstructibleElements();
+  static const tRegister& GetConstructibleElements();
 
   /*!
    * \return Returns name of group to which this create module action belongs
@@ -111,9 +120,9 @@ public:
   virtual const tConstructorParameters* GetParameterTypes() const = 0;
 
   /*!
-   * \return Returns .so file in which address provided as argument is found by dladdr
+   * \return Whether create action is deprecated;
    */
-  tSharedLibrary GetBinary(void* addr);
+  virtual bool IsDeprecated() const;
 
 //----------------------------------------------------------------------
 // Private fields and methods

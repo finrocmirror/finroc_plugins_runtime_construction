@@ -72,9 +72,9 @@ namespace runtime_construction
 namespace internal
 {
 
-std::vector<tCreateFrameworkElementAction*>& GetConstructibleElements()
+tCreateFrameworkElementAction::tRegister& GetConstructibleElements()
 {
-  static std::vector<tCreateFrameworkElementAction*> module_types;
+  static tCreateFrameworkElementAction::tRegister module_types;
   return module_types;
 }
 
@@ -82,7 +82,7 @@ std::vector<tCreateFrameworkElementAction*>& GetConstructibleElements()
 
 tCreateFrameworkElementAction::tCreateFrameworkElementAction()
 {
-  internal::GetConstructibleElements().push_back(this);
+  internal::GetConstructibleElements().Add(this);
 }
 
 tSharedLibrary tCreateFrameworkElementAction::GetBinary(void* addr)
@@ -97,9 +97,14 @@ tSharedLibrary tCreateFrameworkElementAction::GetBinary(void* addr)
 #endif
 }
 
-const std::vector<tCreateFrameworkElementAction*>& tCreateFrameworkElementAction::GetConstructibleElements()
+const tCreateFrameworkElementAction::tRegister& tCreateFrameworkElementAction::GetConstructibleElements()
 {
   return internal::GetConstructibleElements();
+}
+
+bool tCreateFrameworkElementAction::IsDeprecated() const
+{
+  return false;
 }
 
 //----------------------------------------------------------------------

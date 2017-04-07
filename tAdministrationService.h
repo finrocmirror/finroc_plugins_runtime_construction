@@ -133,11 +133,30 @@ public:
   std::string CreateModule(uint32_t create_action_index, const std::string& module_name, int parent_handle, const rrlib::serialization::tMemoryBuffer& serialized_creation_parameters);
 
   /*!
+   * Create URI connector connecting local port using one of the supported URI schemes (provided e.g. by network transports).
+   *
+   * \param local_port_handle Handle of local owner port
+   * \param uri URI of partner port
+   * \param connect_options Connect options
+   * \return Returns error message if connecting failed. On success an empty string is returned.
+   */
+  std::string CreateUriConnector(int local_port_handle, const rrlib::uri::tURI& uri, const core::tUriConnectOptions& connect_options);
+
+  /*!
    * Deletes specified framework element
    *
    * \param element_handle Handle of framework element
    */
   void DeleteElement(int element_handle);
+
+  /*!
+   * Delete URI connector
+   *
+   * \param local_port_handle Handle of local owner port
+   * \param uri URI of partner port
+   * \return Whether any connector was deleted
+   */
+  bool DeleteUriConnector(int local_port_handle, const rrlib::uri::tURI& uri);
 
   /*!
    * Disconnect the two ports

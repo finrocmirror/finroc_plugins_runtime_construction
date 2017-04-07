@@ -36,7 +36,6 @@
 #include "rrlib/util/string.h"
 #include "core/file_lookup.h"
 #include "core/tRuntimeEnvironment.h"
-#include "core/internal/tByStringConnector.h"
 #include "plugins/parameters/internal/tParameterInfo.h"
 
 //----------------------------------------------------------------------
@@ -77,7 +76,7 @@ typedef tFrameworkElement::tFlag tFlag;
 //----------------------------------------------------------------------
 
 /*! Thread currently saving finstructable group */
-static rrlib::thread::tThread* saving_thread = NULL;
+static rrlib::thread::tThread* saving_thread = nullptr;
 
 /*! Temporary variable for saving: .so files that should be loaded prior to instantiating this group */
 static std::set<tSharedLibrary> dependencies_tmp;
@@ -111,50 +110,45 @@ void tFinstructable::AddDependency(const rrlib::rtti::tType& dt)
   }
 }
 
-void tFinstructable::AnnotatedObjectInitialized()
+core::tAbstractPort* tFinstructable::GetChildPort(const core::tPath& path)
 {
-  if (!GetFrameworkElement()->GetFlag(tFlag::FINSTRUCTABLE_GROUP))
+  tFrameworkElement* element = GetFrameworkElement()->GetChild(path);
+  if (element && element->IsPort())
   {
-    throw std::logic_error("Any class using tFinstructable must set tFlag::FINSTRUCTABLE_GROUP in constructor");
+    return static_cast<core::tAbstractPort*>(element);
   }
+  return nullptr;
 }
 
-core::tAbstractPort* tFinstructable::GetChildPort(const std::string& link)
+core::tPath tFinstructable::GetConnectorPath(const core::tPath& target_path, const core::tPath& this_group_path)
 {
-  if (link[0] == '/')
+  if (target_path.CountCommonElements(this_group_path) == this_group_path.Size())
   {
-    return core::tRuntimeEnvironment::GetInstance().GetPort(link);
+    return core::tPath(false, target_path.Begin() + this_group_path.Size(), target_path.End());
   }
-  tFrameworkElement* fe = GetFrameworkElement()->GetChildElement(link, false);
-  if (fe != NULL && fe->IsPort())
-  {
-    return static_cast<core::tAbstractPort*>(fe);
-  }
-  return NULL;
+  return target_path;
 }
 
-std::string tFinstructable::GetEdgeLink(const std::string& target_link, const std::string& this_group_link)
+core::tPath tFinstructable::GetConnectorPath(core::tAbstractPort& port, const core::tPath& this_group_path)
 {
-  if (target_link.compare(0, this_group_link.length(), this_group_link) == 0)
-  {
-    return target_link.substr(this_group_link.length());
-  }
-  return target_link;
-}
-
-std::string tFinstructable::GetEdgeLink(core::tAbstractPort& ap, const std::string& this_group_link)
-{
-  tFrameworkElement* alt_root = ap.GetParentWithFlags(tFlag::ALTERNATIVE_LINK_ROOT);
+  core::tPath port_path = port.GetPath();
+  tFrameworkElement* alt_root = port.GetParentWithFlags(tFlag::ALTERNATIVE_LOCAL_URI_ROOT);
   if (alt_root && alt_root->IsChildOf(*GetFrameworkElement()))
   {
-    return ap.GetQualifiedLink();
+    return core::tPath(true, port_path.Begin() + alt_root->GetPath().Size(), port_path.End());
   }
-  return ap.GetQualifiedName().substr(this_group_link.length());
+  return core::tPath(true, port_path.Begin() + this_group_path.Size(), port_path.End());
 }
 
 std::string tFinstructable::GetLogDescription() const
 {
-  return GetFrameworkElement() ? GetFrameworkElement()->GetQualifiedName() : "Unattached Finstructable";
+  if (GetFrameworkElement())
+  {
+    std::stringstream stream;
+    stream << *GetFrameworkElement();
+    return stream.str();
+  }
+  return "Unattached Finstructable";
 }
 
 std::string tFinstructable::GetXmlFileString()
@@ -181,8 +175,8 @@ void tFinstructable::Instantiate(const rrlib::xml::tNode& node, tFrameworkElemen
 
     // read parameters
     rrlib::xml::tNode::const_iterator child_node = node.ChildrenBegin();
-    const rrlib::xml::tNode* parameters = NULL;
-    const rrlib::xml::tNode* constructor_params = NULL;
+    const rrlib::xml::tNode* parameters = nullptr;
+    const rrlib::xml::tNode* constructor_params = nullptr;
     std::string p_name = child_node->Name();
     if (p_name == "constructor")
     {
@@ -197,9 +191,9 @@ void tFinstructable::Instantiate(const rrlib::xml::tNode& node, tFrameworkElemen
     }
 
     // create mode
-    tFrameworkElement* created = NULL;
-    tConstructorParameters* spl = NULL;
-    if (constructor_params != NULL)
+    tFrameworkElement* created = nullptr;
+    tConstructorParameters* spl = nullptr;
+    if (constructor_params != nullptr)
     {
       spl = action.GetParameterTypes()->Instantiate();
       spl->Deserialize(*constructor_params, true);
@@ -247,7 +241,7 @@ void tFinstructable::LoadParameter(const rrlib::xml::tNode& node, core::tAbstrac
   bool outermost_group = GetFrameworkElement()->GetParent() == &(core::tRuntimeEnvironment::GetInstance());
   if (!pi)
   {
-    FINROC_LOG_PRINT(WARNING, "Port is not a parameter: '", parameter_port.GetQualifiedName(), "'. Parameter entry is not loaded.");
+    FINROC_LOG_PRINT(WARNING, "Port is not a parameter: '", parameter_port, "'. Parameter entry is not loaded.");
   }
   else
   {
@@ -265,7 +259,7 @@ void tFinstructable::LoadParameter(const rrlib::xml::tNode& node, core::tAbstrac
     }
     catch (const std::exception& e)
     {
-      FINROC_LOG_PRINT(WARNING, "Unable to load parameter value for '", parameter_port.GetQualifiedName(), "'. ", e);
+      FINROC_LOG_PRINT(WARNING, "Unable to load parameter value for '", parameter_port, "'. ", e);
     }
   }
 }
@@ -279,7 +273,7 @@ void tFinstructable::LoadXml()
       FINROC_LOG_PRINT(DEBUG, "Loading XML: ", GetXmlFileString());
       rrlib::xml::tDocument doc(core::GetFinrocXMLDocument(GetXmlFileString(), false));
       rrlib::xml::tNode& root = doc.RootNode();
-      std::string link_tmp = GetFrameworkElement()->GetQualifiedName() + "/";
+      core::tPath path_to_this = GetFrameworkElement()->GetPath();
       if (main_name.length() == 0 && root.HasAttribute("defaultname"))
       {
         main_name = root.GetStringAttribute("defaultname");
@@ -363,34 +357,121 @@ void tFinstructable::LoadXml()
         }
         else if (name == "edge")
         {
-          std::string src = node->GetStringAttribute("src");
-          std::string dest = node->GetStringAttribute("dest");
-          core::tAbstractPort* src_port = GetChildPort(src);
-          core::tAbstractPort* dest_port = GetChildPort(dest);
-          if (src_port == NULL && dest_port == NULL)
+          core::tURI source_uri(node->GetStringAttribute("src"));
+          core::tURI destination_uri(node->GetStringAttribute("dest"));
+          try
           {
-            FINROC_LOG_PRINT(WARNING, "Cannot create edge because neither port is available: ", src, ", ", dest);
+            rrlib::uri::tURIElements source_uri_parsed;
+            rrlib::uri::tURIElements destination_uri_parsed;
+            source_uri.Parse(source_uri_parsed);
+            destination_uri.Parse(destination_uri_parsed);
+            core::tUriConnectOptions connect_options(core::tConnectionFlag::FINSTRUCTED);
+            if (node->HasAttribute("flags"))
+            {
+              connect_options.flags |= rrlib::serialization::Deserialize<core::tConnectionFlags>(node->GetStringAttribute("flags"));
+            }
+
+            for (rrlib::xml::tNode::const_iterator conversion_node = node->ChildrenBegin(); conversion_node != node->ChildrenEnd(); ++conversion_node)
+            {
+              if (conversion_node->Name() == "conversion")
+              {
+                rrlib::rtti::tType intermediate_type;
+                if (conversion_node->HasAttribute("intermediate_type"))
+                {
+                  intermediate_type = rrlib::rtti::tType::FindType(conversion_node->GetStringAttribute("intermediate_type"));
+                }
+                if (conversion_node->HasAttribute("operation2"))
+                {
+                  // Two operations
+                  std::string operation1 = conversion_node->GetStringAttribute("operation1");
+                  std::string operation2 = conversion_node->GetStringAttribute("operation2");
+                  connect_options.conversion_operations = rrlib::rtti::conversion::tConversionOperationSequence(operation1, operation2, intermediate_type);
+                  if (conversion_node->HasAttribute("parameter1"))
+                  {
+                    connect_options.conversion_operations.SetParameterValue(0, conversion_node->GetStringAttribute("parameter1"));
+                  }
+                  if (conversion_node->HasAttribute("parameter2"))
+                  {
+                    connect_options.conversion_operations.SetParameterValue(1, conversion_node->GetStringAttribute("parameter2"));
+                  }
+                }
+                else if (conversion_node->HasAttribute("operation"))
+                {
+                  // One operation
+                  std::string operation1 = conversion_node->GetStringAttribute("operation");
+                  connect_options.conversion_operations = rrlib::rtti::conversion::tConversionOperationSequence(operation1, "", intermediate_type);
+                  if (conversion_node->HasAttribute("parameter"))
+                  {
+                    connect_options.conversion_operations.SetParameterValue(0, conversion_node->GetStringAttribute("parameter"));
+                  }
+                }
+              }
+            }
+
+            if (source_uri_parsed.scheme.length() == 0 && destination_uri_parsed.scheme.length() == 0)
+            {
+              core::tAbstractPort* source_port = GetChildPort(source_uri_parsed.path);
+              core::tAbstractPort* destination_port = GetChildPort(destination_uri_parsed.path);
+
+              if (source_port == nullptr && destination_port == nullptr)
+              {
+                FINROC_LOG_PRINT(WARNING, "Cannot create connector because neither port is available: ", source_uri_parsed.path, ", ", destination_uri_parsed.path);
+              }
+              else if (source_port == nullptr || source_port->GetFlag(tFlag::VOLATILE))    // source volatile
+              {
+                connect_options.flags |= core::tConnectionFlag::RECONNECT;
+                destination_port->ConnectTo(path_to_this.Append(source_uri_parsed.path), connect_options);
+              }
+              else if (destination_port == nullptr || destination_port->GetFlag(tFlag::VOLATILE))    // destination volatile
+              {
+                connect_options.flags |= core::tConnectionFlag::RECONNECT;
+                source_port->ConnectTo(path_to_this.Append(destination_uri_parsed.path), connect_options);
+              }
+              else
+              {
+                source_port->ConnectTo(*destination_port, connect_options);
+              }
+            }
+            else
+            {
+              // Create URI connector
+              if (source_uri_parsed.scheme.length() && destination_uri_parsed.scheme.length())
+              {
+                throw std::runtime_error("Only one port may have an address with an URI scheme");
+              }
+              core::tAbstractPort* source_port = GetChildPort(source_uri_parsed.scheme.length() == 0 ? source_uri_parsed.path : destination_uri_parsed.path);
+              if (!source_port)
+              {
+                FINROC_LOG_PRINT(WARNING, "Cannot create connector because port is not available: ", source_uri_parsed.scheme.length() == 0 ? source_uri_parsed.path : destination_uri_parsed.path);
+              }
+              const core::tURI& scheme_uri = source_uri_parsed.scheme.length() != 0 ? source_uri : destination_uri;
+
+              // read parameters
+              for (rrlib::xml::tNode::const_iterator parameter_node = node->ChildrenBegin(); parameter_node != node->ChildrenEnd(); ++parameter_node)
+              {
+                if (parameter_node->Name() == "parameter")
+                {
+                  connect_options.parameters.emplace(parameter_node->GetStringAttribute("name"), parameter_node->GetTextContent());
+                }
+              }
+
+              core::tUriConnector::Create(*source_port, scheme_uri, connect_options);
+            }
           }
-          else if (src_port == NULL || src_port->GetFlag(tFlag::VOLATILE))    // source volatile
+          catch (const std::exception& e)
           {
-            dest_port->ConnectTo(QualifyLink(src, link_tmp), core::tConnectionFlag::FINSTRUCTED | core::tConnectionFlag::RECONNECT);
-          }
-          else if (dest_port == NULL || dest_port->GetFlag(tFlag::VOLATILE))    // destination volatile
-          {
-            src_port->ConnectTo(QualifyLink(dest, link_tmp), core::tConnectionFlag::FINSTRUCTED | core::tConnectionFlag::RECONNECT);
-          }
-          else
-          {
-            src_port->ConnectTo(*dest_port, core::tConnectionFlag::FINSTRUCTED);
+            FINROC_LOG_PRINT(WARNING, "Creating connector from ", source_uri.ToString(), " to ", destination_uri.ToString(), " failed. Reason: ", e.what());
           }
         }
         else if (name == "parameter") // legacy parameter info support
         {
-          std::string param = node->GetStringAttribute("link");
-          core::tAbstractPort* parameter = GetChildPort(param);
+          core::tURI parameter_uri(node->GetStringAttribute("link"));
+          rrlib::uri::tURIElements parameter_uri_parsed;
+          parameter_uri.Parse(parameter_uri_parsed);
+          core::tAbstractPort* parameter = GetChildPort(parameter_uri_parsed.path);
           if (!parameter)
           {
-            FINROC_LOG_PRINT(WARNING, "Cannot set config entry, because parameter is not available: ", param);
+            FINROC_LOG_PRINT(WARNING, "Cannot set config entry, because parameter is not available: ", parameter_uri.ToString());
           }
           else
           {
@@ -415,6 +496,14 @@ void tFinstructable::LoadXml()
   }
 }
 
+void tFinstructable::OnInitialization()
+{
+  if (!GetFrameworkElement()->GetFlag(tFlag::FINSTRUCTABLE_GROUP))
+  {
+    throw std::logic_error("Any class using tFinstructable must set tFlag::FINSTRUCTABLE_GROUP in constructor");
+  }
+}
+
 void tFinstructable::ProcessParameterLinksNode(const rrlib::xml::tNode& node, core::tFrameworkElement& element)
 {
   for (auto it = node.ChildrenBegin(); it != node.ChildrenEnd(); ++it)
@@ -429,7 +518,7 @@ void tFinstructable::ProcessParameterLinksNode(const rrlib::xml::tNode& node, co
       }
       else
       {
-        FINROC_LOG_PRINT(WARNING, "Cannot find '", element.GetQualifiedLink(), "/", name, "'. Parameter entries below are not loaded.");
+        FINROC_LOG_PRINT(WARNING, "Cannot find '", element, "/", name, "'. Parameter entries below are not loaded.");
       }
     }
     else if (it->Name() == "parameter")
@@ -447,19 +536,10 @@ void tFinstructable::ProcessParameterLinksNode(const rrlib::xml::tNode& node, co
       }
       else
       {
-        FINROC_LOG_PRINT(WARNING, "Cannot find parameter '", element.GetQualifiedLink(), "/", name, "'. Parameter entry is not loaded.");
+        FINROC_LOG_PRINT(WARNING, "Cannot find parameter '", element, "/", name, "'. Parameter entry is not loaded.");
       }
     }
   }
-}
-
-std::string tFinstructable::QualifyLink(const std::string& link, const std::string& this_group_link)
-{
-  if (link[0] == '/')
-  {
-    return link;
-  }
-  return this_group_link + link;
 }
 
 bool tFinstructable::SaveParameterConfigEntries(rrlib::xml::tNode& node, core::tFrameworkElement& element)
@@ -632,59 +712,12 @@ void tFinstructable::SaveXml()
       // serialize framework elements
       SerializeChildren(root, *GetFrameworkElement());
 
-      // serialize edges (sorted by port links (we do not want changes in finstruct files depending on whether or not an optional/volatile connector exists))
-      std::string this_qualified_link = GetFrameworkElement()->GetQualifiedName() + "/";
-      std::map<std::pair<std::string, std::string>, std::pair<core::tConnector*, core::internal::tByStringConnector*>> connector_map;
-      std::set<core::tConnector*> skip_connectors;
+      // serialize connectors (sorted by port URIs (we do not want changes in finstruct files depending on whether or not an optional/volatile connector exists))
+      rrlib::uri::tPath this_path = GetFrameworkElement()->GetPath();
+      std::map<std::pair<rrlib::uri::tURI, rrlib::uri::tURI>, std::pair<core::tConnector*, core::tUriConnector*>> connector_map;
       bool this_is_outermost_composite_component = GetFrameworkElement()->GetParentWithFlags(tFlag::FINSTRUCTABLE_GROUP) == nullptr;
 
-      // First pass: Get ByStringConnectors and fill skip_connectors list
-      for (auto it = GetFrameworkElement()->SubElementsBegin(); it != GetFrameworkElement()->SubElementsEnd(); ++it)
-      {
-        if ((!it->IsPort()) || (!it->IsReady()))
-        {
-          continue;
-        }
-        core::tAbstractPort& port = static_cast<core::tAbstractPort&>(*it);
-
-        // Get ByStringConnectors first
-        if (port.by_string_connectors)
-        {
-          tFrameworkElement* port_parent_group = port.GetParentWithFlags(tFlag::FINSTRUCTABLE_GROUP);
-          for (auto & connector : (*port.by_string_connectors))
-          {
-            if (!connector->Flags().Get(core::tConnectionFlag::FINSTRUCTED))
-            {
-              continue;
-            }
-            if (connector->GetConnection())
-            {
-              skip_connectors.insert(connector->GetConnection());
-            }
-
-            // connectors should be saved in innermost composite component that contains both ports (common parent); if there is no such port, then save in outermost composite component
-            bool source_link = connector->GetPortReferences()[0].link.length();
-            std::string link = source_link ? connector->GetPortReferences()[0].link : connector->GetPortReferences()[1].link;
-            tFrameworkElement* common_parent = port_parent_group;
-            while (common_parent && (!rrlib::util::StartsWith(link, common_parent->GetQualifiedName())))
-            {
-              common_parent = common_parent->GetParentWithFlags(tFlag::FINSTRUCTABLE_GROUP);
-            }
-            if (common_parent != GetFrameworkElement() && (!(this_is_outermost_composite_component && common_parent == nullptr)))
-            {
-              // save connector in another group
-              continue;
-            }
-
-            std::string this_port_link = GetEdgeLink(port, this_qualified_link);
-            std::pair<std::string, std::string> key(source_link ? link : this_port_link, source_link ? this_port_link : link);
-            std::pair<core::tConnector*, core::internal::tByStringConnector*> value(connector->GetConnection(), connector.get());
-            connector_map.emplace(key, value);
-          }
-        }
-      }
-
-      // Second pass: Plain connectors
+      // Get (primary) connectors
       for (auto it = GetFrameworkElement()->SubElementsBegin(); it != GetFrameworkElement()->SubElementsEnd(); ++it)
       {
         if ((!it->IsPort()) || (!it->IsReady()))
@@ -694,17 +727,12 @@ void tFinstructable::SaveXml()
         core::tAbstractPort& port = static_cast<core::tAbstractPort&>(*it);
         tFrameworkElement* port_parent_group = port.GetParentWithFlags(tFlag::FINSTRUCTABLE_GROUP);
 
+        // Plain connectors
         for (auto it = port.OutgoingConnectionsBegin(); it != port.OutgoingConnectionsEnd(); ++it) // only outgoing edges => we don't get any edges twice
         {
-          // possibly save connector?
-
-          // only save finstructed edges
-          if (!it->Flags().Get(core::tConnectionFlag::FINSTRUCTED))
-          {
-            continue;
-          }
-          // only save edges that are not attached to a tByStringConnector => we don't get any edges twice
-          if (skip_connectors.find(&(*it)) != skip_connectors.end())
+          // Checks whether to save connector
+          // only save primary finstructed edges
+          if ((!it->Flags().Get(core::tConnectionFlag::FINSTRUCTED)) || it->Flags().Get(core::tConnectionFlag::NON_PRIMARY_CONNECTOR))
           {
             continue;
           }
@@ -721,8 +749,48 @@ void tFinstructable::SaveXml()
             continue;
           }
 
-          std::pair<std::string, std::string> key(GetEdgeLink(port, this_qualified_link), GetEdgeLink(it->Destination(), this_qualified_link));
-          std::pair<core::tConnector*, core::internal::tByStringConnector*> value(&(*it), nullptr);
+          std::pair<rrlib::uri::tURI, rrlib::uri::tURI> key(GetConnectorPath(port.GetPath(), this_path), GetConnectorPath(it->Destination().GetPath(), this_path));
+          std::pair<core::tConnector*, core::tUriConnector*> value(&(*it), nullptr);
+          connector_map.emplace(key, value);
+        }
+
+        // Get URI connectors
+        for (auto & connector : port.UriConnectors())
+        {
+          // Checks whether to save connector
+          // only save primary finstructed edges
+          if ((!connector) || (!connector->Flags().Get(core::tConnectionFlag::FINSTRUCTED)) || connector->Flags().Get(core::tConnectionFlag::NON_PRIMARY_CONNECTOR))
+          {
+            continue;
+          }
+
+          std::pair<rrlib::uri::tURI, rrlib::uri::tURI> key(GetConnectorPath(port.GetPath(), this_path), connector->Uri());
+
+          // local URI connectors should be saved in innermost composite component that contains both ports (common parent); if there is no such port, then save in outermost composite component
+          if (typeid(*connector) == typeid(core::internal::tLocalUriConnector))
+          {
+            auto& local_connector = static_cast<core::internal::tLocalUriConnector&>(*connector);
+            bool source_uri = local_connector.GetPortReferences()[0].path.Size();
+            rrlib::uri::tPath path = local_connector.GetPortReferences()[source_uri ? 0 : 1].path;
+            tFrameworkElement* common_parent = port_parent_group;
+            rrlib::uri::tPath parent_group_path = common_parent->GetPath();
+            while (common_parent && path.CountCommonElements(parent_group_path) != parent_group_path.Size())
+            {
+              common_parent = common_parent->GetParentWithFlags(tFlag::FINSTRUCTABLE_GROUP);
+              parent_group_path = common_parent ? common_parent->GetPath() : parent_group_path;
+            }
+            if (common_parent != GetFrameworkElement() && (!(this_is_outermost_composite_component && common_parent == nullptr)))
+            {
+              // save connector in another group
+              continue;
+            }
+
+            rrlib::uri::tURI port_uri = key.first;
+            key.first = source_uri ? rrlib::uri::tURI(path) : port_uri;
+            key.second = source_uri ? port_uri : rrlib::uri::tURI(path);
+          }
+
+          std::pair<core::tConnector*, core::tUriConnector*> value(nullptr, connector.get());
           connector_map.emplace(key, value);
         }
       }
@@ -730,9 +798,60 @@ void tFinstructable::SaveXml()
       for (auto & entry : connector_map)
       {
         rrlib::xml::tNode& edge = root.AddChildNode("edge"); // TODO: "connector"?
-        edge.SetAttribute("src", entry.first.first);
-        edge.SetAttribute("dest", entry.first.second);
-        // TODO: save more info  (flags optional & reconnect)
+        edge.SetAttribute("src", entry.first.first.ToString());
+        edge.SetAttribute("dest", entry.first.second.ToString());
+
+        // Save flags
+        core::tConnectionFlags cFLAGS_TO_SAVE = core::tConnectionFlag::DIRECTION_TO_DESTINATION | core::tConnectionFlag::DIRECTION_TO_SOURCE | core::tConnectionFlag::OPTIONAL | core::tConnectionFlag::RECONNECT | core::tConnectionFlag::SCHEDULING_NEUTRAL;
+        core::tConnectionFlags flags_to_save((entry.second.first ? entry.second.first->Flags() : entry.second.second->Flags()).Raw() & cFLAGS_TO_SAVE.Raw());
+        if (flags_to_save.Raw())
+        {
+          edge.SetAttribute("flags", rrlib::serialization::Serialize(flags_to_save));
+        }
+
+        // Save conversion operation
+        const rrlib::rtti::conversion::tConversionOperationSequence& conversion_operations = entry.second.first ? entry.second.first->ConversionOperations() : entry.second.second->ConversionOperations();
+        if (conversion_operations.Size())
+        {
+          rrlib::xml::tNode& conversion = root.AddChildNode("conversion");
+          conversion.SetAttribute(conversion_operations.Size() == 2 ? "operation1" : "operation", conversion_operations[0].first);
+          if (conversion_operations.GetParameterValue(0))
+          {
+            conversion.SetAttribute(conversion_operations.Size() == 2 ? "parameter1" : "parameter", conversion_operations.GetParameterValue(0).ToString());
+          }
+          if (conversion_operations.Size() == 2)
+          {
+            conversion.SetAttribute("operation2", conversion_operations[1].first);
+            if (conversion_operations.GetParameterValue(0))
+            {
+              conversion.SetAttribute("parameter2", conversion_operations.GetParameterValue(1).ToString());
+            }
+          }
+          if (conversion_operations.IntermediateType())
+          {
+            conversion.SetAttribute("intermediate_type", conversion_operations.IntermediateType().GetName());
+          }
+        }
+
+        // Save parameters of URI connector
+        if (entry.second.second)
+        {
+          core::tUriConnector::tConstParameterDefinitionRange definition_range = entry.second.second->GetParameterDefinitions();
+          core::tUriConnector::tParameterValueRange value_range = entry.second.second->GetParameterValues();
+          assert(definition_range.End() - definition_range.Begin() == value_range.End() - value_range.Begin());
+
+          auto definition = definition_range.Begin();
+          auto value = value_range.Begin();
+          for (; definition < definition_range.End(); ++definition, ++value)
+          {
+            if (!value->Equals(definition->GetDefaultValue()))
+            {
+              rrlib::xml::tNode& parameter_node = root.AddChildNode("parameter");
+              parameter_node.SetAttribute("name", definition->GetName());
+              value->Serialize(parameter_node);
+            }
+          }
+        }
       }
 
       // Save parameter config entries
@@ -766,7 +885,7 @@ void tFinstructable::SaveXml()
       throw std::runtime_error(msg);
     }
   }
-  saving_thread = NULL;
+  saving_thread = nullptr;
 }
 
 std::vector<std::string> tFinstructable::ScanForCommandLineArgs(const std::string& finroc_file)
@@ -823,12 +942,12 @@ void tFinstructable::SerializeChildren(rrlib::xml::tNode& node, tFrameworkElemen
       AddDependency(cma->GetModuleGroup());
       //}
       n.SetAttribute("type", cma->GetName());
-      if (cps != NULL)
+      if (cps != nullptr)
       {
         rrlib::xml::tNode& pn = n.AddChildNode("constructor");
         cps->Serialize(pn, true);
       }
-      if (spl != NULL)
+      if (spl != nullptr)
       {
         rrlib::xml::tNode& pn = n.AddChildNode("parameters");
         spl->Serialize(pn, true);
@@ -847,8 +966,15 @@ void tFinstructable::SetFinstructed(tFrameworkElement& fe, tCreateFrameworkEleme
 {
   assert(!fe.GetFlag(tFlag::FINSTRUCTED) && (!fe.IsReady()));
   parameters::internal::tStaticParameterList& list = parameters::internal::tStaticParameterList::GetOrCreate(fe);
-  const std::vector<tCreateFrameworkElementAction*>& v = tCreateFrameworkElementAction::GetConstructibleElements();
-  list.SetCreateAction(static_cast<int>(std::find(v.begin(), v.end(), &create_action) - v.begin()));
+  auto& element_list = tCreateFrameworkElementAction::GetConstructibleElements();
+  for (size_t i = 0, n = element_list.Size(); i < n; ++i)
+  {
+    if (element_list[i] == &create_action)
+    {
+      list.SetCreateAction(i);
+      break;
+    }
+  }
   fe.SetFlag(tFlag::FINSTRUCTED);
   if (params)
   {

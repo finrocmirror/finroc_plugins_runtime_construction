@@ -156,7 +156,7 @@ void tPortCreationList::ApplyChanges(core::tFrameworkElement& io_vector_, tFlags
 void tPortCreationList::CheckPort(core::tAbstractPort* existing_port, core::tFrameworkElement& io_vector, tFlags flags,
                                   const std::string& name, rrlib::rtti::tType type, const tPortCreateOptions& create_options, core::tAbstractPort* prototype)
 {
-  if (existing_port && existing_port->NameEquals(name) && existing_port->GetDataType() == type &&
+  if (existing_port && existing_port->GetName() == name && existing_port->GetDataType() == type &&
       existing_port->GetFlag(tFlag::VOLATILE) == flags.Get(tFlag::VOLATILE))
   {
     bool create_output_port = create_options.Get(tPortCreateOption::OUTPUT) || flags.Get(tFlag::OUTPUT_PORT);
@@ -181,7 +181,7 @@ void tPortCreationList::CheckPort(core::tAbstractPort* existing_port, core::tFra
     flags |= tFlag::FINSTRUCTED;
   }
 
-  FINROC_LOG_PRINT_TO(port_creation_list, DEBUG_VERBOSE_1, "Creating port ", name, " in IOVector ", io_vector.GetQualifiedLink());
+  FINROC_LOG_PRINT_TO(port_creation_list, DEBUG_VERBOSE_1, "Creating port ", name, " in IOVector ", io_vector);
   core::tAbstractPort* created_port = core::tPortFactory::CreatePort(name, io_vector, type, flags);
   if (created_port != NULL)
   {

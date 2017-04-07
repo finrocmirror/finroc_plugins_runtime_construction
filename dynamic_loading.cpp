@@ -374,8 +374,8 @@ tCreateFrameworkElementAction& LoadComponentType(const tSharedLibrary& shared_li
   static std::vector<tSharedLibrary> loaded;
 
   // try to find component type among loaded ones
-  const std::vector<tCreateFrameworkElementAction*>& modules = tCreateFrameworkElementAction::GetConstructibleElements();
-  for (size_t i = 0u; i < modules.size(); i++)
+  auto& modules = tCreateFrameworkElementAction::GetConstructibleElements();
+  for (size_t i = 0, n = modules.Size(); i < n; i++)
   {
     tCreateFrameworkElementAction* cma = modules[i];
     if (cma->GetModuleGroup() == shared_library && cma->GetName().compare(name) == 0)

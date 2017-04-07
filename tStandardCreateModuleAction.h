@@ -113,7 +113,12 @@ public:
 
   virtual const tConstructorParameters* GetParameterTypes() const override
   {
-    return NULL;
+    return nullptr;
+  }
+
+  virtual bool IsDeprecated() const override
+  {
+    return Tdeprecated;
   }
 
 //----------------------------------------------------------------------

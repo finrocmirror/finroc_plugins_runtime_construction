@@ -32,6 +32,7 @@
 //----------------------------------------------------------------------
 // External includes (system with <>, local with "")
 //----------------------------------------------------------------------
+#include "rrlib/rtti_conversion/tStaticCastOperation.h"
 #include "core/tRuntimeEnvironment.h"
 #include "core/tRuntimeSettings.h"
 #include "plugins/data_ports/tGenericPort.h"
@@ -79,9 +80,13 @@ static rpc_ports::tRPCInterfaceType<tAdministrationService> cTYPE("Administratio
     &tAdministrationService::GetModuleLibraries, &tAdministrationService::GetParameterInfo, &tAdministrationService::IsExecuting,
     &tAdministrationService::LoadModuleLibrary, &tAdministrationService::PauseExecution, &tAdministrationService::SaveAllFinstructableFiles,
     &tAdministrationService::SaveFinstructableGroup, &tAdministrationService::SetAnnotation, &tAdministrationService::SetPortValue,
-    &tAdministrationService::StartExecution, &tAdministrationService::NetworkConnect, &tAdministrationService::ConnectPorts); // NetworkConnect etc. are last in order to not break binary compatibility
+    &tAdministrationService::StartExecution, &tAdministrationService::NetworkConnect, &tAdministrationService::ConnectPorts,  // NetworkConnect etc. are last in order to not break binary compatibility
+    &tAdministrationService::CreateUriConnector, &tAdministrationService::DeleteUriConnector);
 
 static tAdministrationService administration_service;
+
+/*! Serialization info for memory buffers in some commands */
+static const rrlib::serialization::tSerializationInfo cBASIC_UID_SERIALIZATION_INFO(0, rrlib::serialization::tRegisterEntryEncoding::UID, 0);
 
 //----------------------------------------------------------------------
 // Implementation
@@ -129,20 +134,20 @@ void tAdministrationService::Connect(int source_port_handle, int destination_por
 
 std::string tAdministrationService::ConnectPorts(int source_port_handle, int destination_port_handle, const core::tConnectOptions& connect_options)
 {
-  std::string result;
+  std::stringstream result;
   auto cVOLATILE = core::tFrameworkElement::tFlag::VOLATILE;
   core::tAbstractPort* source_port = Runtime().GetPort(source_port_handle);
   core::tAbstractPort* destination_port = Runtime().GetPort(destination_port_handle);
   core::tConnectOptions options = connect_options;
   if ((!source_port) || (!destination_port))
   {
-    result = "At least one port to be connected does not exist";
+    const char* result = "At least one port to be connected does not exist";
     FINROC_LOG_PRINT(WARNING, result);
     return result;
   }
   if (source_port->GetFlag(cVOLATILE) && destination_port->GetFlag(cVOLATILE))
   {
-    FINROC_LOG_PRINT(WARNING, "Cannot really persistently connect two network ports: ", source_port->GetQualifiedLink(), ", ", destination_port->GetQualifiedLink());
+    FINROC_LOG_PRINT(WARNING, "Cannot really persistently connect two network ports: ", source_port, ", ", destination_port);
   }
 
   // Connect
@@ -151,12 +156,12 @@ std::string tAdministrationService::ConnectPorts(int source_port_handle, int des
     if (source_port->GetFlag(cVOLATILE) && (!destination_port->GetFlag(cVOLATILE)))
     {
       options.flags |= core::tConnectionFlag::RECONNECT;
-      destination_port->ConnectTo(source_port->GetQualifiedLink(), options);
+      destination_port->ConnectTo(source_port->GetPath(), options);
     }
     else if (destination_port->GetFlag(cVOLATILE) && (!source_port->GetFlag(cVOLATILE)))
     {
       options.flags |= core::tConnectionFlag::RECONNECT;
-      source_port->ConnectTo(destination_port->GetQualifiedLink(), options);
+      source_port->ConnectTo(destination_port->GetPath(), options);
     }
     else
     {
@@ -165,22 +170,22 @@ std::string tAdministrationService::ConnectPorts(int source_port_handle, int des
   }
   catch (const std::exception& e)
   {
-    result = "Could not connect ports '" + source_port->GetQualifiedName() + "' and '" + destination_port->GetQualifiedName() + "'. Reason: " + e.what();
-    FINROC_LOG_PRINT(WARNING, result);
-    return result;
+    result << "Could not connect ports '" << source_port << "' and '" << destination_port << "'. Reason: " << e.what();
+    FINROC_LOG_PRINT(WARNING, result.str());
+    return result.str();
   }
 
   // Connection check
   if (!source_port->IsConnectedTo(*destination_port))
   {
-    result = "Could not connect ports '" + source_port->GetQualifiedName() + "' and '" + destination_port->GetQualifiedName() + "' (see output of connected Finroc program for details).";
-    FINROC_LOG_PRINT(WARNING, result);
+    result << "Could not connect ports '" << source_port << "' and '" << destination_port << "' (see output of connected Finroc program for details).";
+    FINROC_LOG_PRINT(WARNING, result.str());
   }
   else
   {
-    FINROC_LOG_PRINT(USER, "Connected ports ", source_port->GetQualifiedName(), " ", destination_port->GetQualifiedName());
+    FINROC_LOG_PRINT(USER, "Connected ports ", source_port, " ", destination_port);
   }
-  return result;
+  return result.str();
 }
 
 void tAdministrationService::CreateAdministrationPort()
@@ -196,8 +201,8 @@ std::string tAdministrationService::CreateModule(uint32_t create_action_index, c
   try
   {
     rrlib::thread::tLock lock(Runtime().GetStructureMutex());
-    const std::vector<tCreateFrameworkElementAction*>& create_actions = tCreateFrameworkElementAction::GetConstructibleElements();
-    if (create_action_index >= create_actions.size())
+    auto& create_actions = tCreateFrameworkElementAction::GetConstructibleElements();
+    if (create_action_index >= create_actions.Size())
     {
       error_message = "Invalid construction action index";
     }
@@ -209,18 +214,18 @@ std::string tAdministrationService::CreateModule(uint32_t create_action_index, c
       {
         error_message = "Parent not available. Cancelling remote module creation.";
       }
-      else if ((!core::tRuntimeSettings::DuplicateQualifiedNamesAllowed()) && parent->GetChild(module_name))
+      else if (parent->GetChild(module_name))
       {
         error_message = std::string("Element with name '") + module_name + "' already exists. Creating another module with this name is not allowed.";
       }
       else
       {
-        FINROC_LOG_PRINT(USER, "Creating Module ", parent->GetQualifiedLink(), "/", module_name);
+        FINROC_LOG_PRINT(USER, "Creating Module ", parent, "/", module_name);
         std::unique_ptr<tConstructorParameters> parameters;
         if (create_action->GetParameterTypes() && create_action->GetParameterTypes()->Size() > 0)
         {
           parameters.reset(create_action->GetParameterTypes()->Instantiate());
-          rrlib::serialization::tInputStream input_stream(serialized_creation_parameters, rrlib::serialization::tTypeEncoding::NAMES);
+          rrlib::serialization::tInputStream input_stream(serialized_creation_parameters, cBASIC_UID_SERIALIZATION_INFO);
           for (size_t i = 0; i < parameters->Size(); i++)
           {
             parameters::internal::tStaticParameterImplementationBase& parameter = parameters->Get(i);
@@ -258,18 +263,66 @@ std::string tAdministrationService::CreateModule(uint32_t create_action_index, c
   return error_message;
 }
 
+std::string tAdministrationService::CreateUriConnector(int local_port_handle, const rrlib::uri::tURI& uri, const core::tUriConnectOptions& connect_options)
+{
+  core::tAbstractPort* port = core::tRuntimeEnvironment::GetInstance().GetPort(local_port_handle);
+  std::stringstream result;
+  if (port && port->IsReady())
+  {
+    try
+    {
+      core::tUriConnector::Create(*port, uri, connect_options);
+      return "";
+    }
+    catch (const std::exception& e)
+    {
+      result << "Creating URI connector failed: " << e.what();
+    }
+  }
+  else
+  {
+    result << "No port with local handle " << local_port_handle << " found";
+  }
+  FINROC_LOG_PRINT(WARNING, result.str());
+  return result.str();
+}
+
 void tAdministrationService::DeleteElement(int element_handle)
 {
   core::tFrameworkElement* element = Runtime().GetElement(element_handle);
   if (element && (!element->IsDeleted()))
   {
-    FINROC_LOG_PRINT(USER, "Deleting element ", element->GetQualifiedLink());
+    FINROC_LOG_PRINT(USER, "Deleting element ", element);
     element->ManagedDelete();
   }
   else
   {
     FINROC_LOG_PRINT(ERROR, "Could not delete Framework element, because it does not appear to be available.");
   }
+}
+
+bool tAdministrationService::DeleteUriConnector(int local_port_handle, const rrlib::uri::tURI& uri)
+{
+  core::tAbstractPort* port = core::tRuntimeEnvironment::GetInstance().GetPort(local_port_handle);
+  std::stringstream result;
+  if (port && port->IsReady())
+  {
+    for (auto & connector : port->UriConnectors())
+    {
+      if (connector->Uri() == uri)
+      {
+        connector->Disconnect();
+        return true;
+      }
+    }
+    result << "No connector with URI " << uri.ToString() << " found";
+  }
+  else
+  {
+    result << "No port with local handle " << local_port_handle << " found";
+  }
+  FINROC_LOG_PRINT(WARNING, result.str());
+  return false;
 }
 
 void tAdministrationService::Disconnect(int source_port_handle, int destination_port_handle)
@@ -284,20 +337,20 @@ void tAdministrationService::Disconnect(int source_port_handle, int destination_
   }
   if (source_port->GetFlag(cVOLATILE))
   {
-    destination_port->DisconnectFrom(source_port->GetQualifiedLink());
+    destination_port->DisconnectFrom(source_port->GetPath());
   }
   if (destination_port->GetFlag(cVOLATILE))
   {
-    source_port->DisconnectFrom(destination_port->GetQualifiedLink());
+    source_port->DisconnectFrom(destination_port->GetPath());
   }
   source_port->DisconnectFrom(*destination_port);
   if (source_port->IsConnectedTo(*destination_port))
   {
-    FINROC_LOG_PRINT(WARNING, "Could not disconnect ports ", source_port->GetQualifiedName(), " ", destination_port->GetQualifiedName());
+    FINROC_LOG_PRINT(WARNING, "Could not disconnect ports ", source_port, " ", destination_port);
   }
   else
   {
-    FINROC_LOG_PRINT(USER, "Disconnected ports ", source_port->GetQualifiedName(), " ", destination_port->GetQualifiedName());
+    FINROC_LOG_PRINT(USER, "Disconnected ports ", source_port, " ", destination_port);
   }
 }
 
@@ -310,7 +363,7 @@ void tAdministrationService::DisconnectAll(int port_handle)
     return;
   }
   port->DisconnectAll();
-  FINROC_LOG_PRINT(USER, "Disconnected port ", port->GetQualifiedName());
+  FINROC_LOG_PRINT(USER, "Disconnected port ", port);
 }
 
 rrlib::serialization::tMemoryBuffer tAdministrationService::GetAnnotation(int element_handle, const std::string& annotation_type_name)
@@ -323,7 +376,7 @@ rrlib::serialization::tMemoryBuffer tAdministrationService::GetAnnotation(int el
     if (result)
     {
       rrlib::serialization::tMemoryBuffer result_buffer;
-      rrlib::serialization::tOutputStream output_stream(result_buffer, rrlib::serialization::tTypeEncoding::NAMES);
+      rrlib::serialization::tOutputStream output_stream(result_buffer, cBASIC_UID_SERIALIZATION_INFO);
       rrlib::rtti::tTypedConstPointer annotation_pointer(result, type);
       annotation_pointer.Serialize(output_stream);
       output_stream.Close();
@@ -339,22 +392,8 @@ rrlib::serialization::tMemoryBuffer tAdministrationService::GetAnnotation(int el
 
 rrlib::serialization::tMemoryBuffer tAdministrationService::GetCreateModuleActions()
 {
-  rrlib::serialization::tMemoryBuffer result_buffer;
-  rrlib::serialization::tOutputStream output_stream(result_buffer, rrlib::serialization::tTypeEncoding::NAMES);
-  const std::vector<tCreateFrameworkElementAction*>& module_types = tCreateFrameworkElementAction::GetConstructibleElements();
-  for (size_t i = 0u; i < module_types.size(); i++)
-  {
-    const tCreateFrameworkElementAction& create_action = *module_types[i];
-    output_stream.WriteString(create_action.GetName());
-    output_stream.WriteString(create_action.GetModuleGroup().ToString());
-    output_stream.WriteBoolean(create_action.GetParameterTypes());
-    if (create_action.GetParameterTypes())
-    {
-      output_stream << *create_action.GetParameterTypes();
-    }
-  }
-  output_stream.Close();
-  return result_buffer;
+  FINROC_LOG_PRINT(WARNING, "GetCreateModuleActions() is superseded");
+  return rrlib::serialization::tMemoryBuffer();
 }
 
 rrlib::serialization::tMemoryBuffer tAdministrationService::GetModuleLibraries()
@@ -381,7 +420,7 @@ rrlib::serialization::tMemoryBuffer tAdministrationService::GetParameterInfo(int
 
   parameters::tConfigFile* config_file = parameters::tConfigFile::Find(*root);
   rrlib::serialization::tMemoryBuffer result_buffer;
-  rrlib::serialization::tOutputStream output_stream(result_buffer, rrlib::serialization::tTypeEncoding::NAMES);
+  rrlib::serialization::tOutputStream output_stream(result_buffer, cBASIC_UID_SERIALIZATION_INFO);
   if (!config_file)
   {
     output_stream.WriteBoolean(false);
@@ -461,61 +500,9 @@ rrlib::serialization::tMemoryBuffer tAdministrationService::LoadModuleLibrary(co
 std::string tAdministrationService::NetworkConnect(int local_port_handle, const std::string& preferred_transport,
     const std::string& remote_runtime_uuid, int remote_port_handle, const std::string& remote_port_link, bool disconnect)
 {
-  // check local port
-  auto cVOLATILE = core::tFrameworkElement::tFlag::VOLATILE;
-  core::tAbstractPort* local_port = Runtime().GetPort(local_port_handle);
-  std::string return_message;
-  if (!local_port)
-  {
-    return_message = disconnect ? "Local port to be disconnected does not exist" : "Local port to be connected does not exist";
-    FINROC_LOG_PRINT(WARNING, return_message);
-    return return_message;
-  }
-  if ((!disconnect) && local_port->GetFlag(cVOLATILE))
-  {
-    return_message = "Cannot really persistently connect a volatile port: " + local_port->GetQualifiedLink();
-    FINROC_LOG_PRINT(WARNING, return_message);
-    return return_message;
-  }
-
-  // create list with order in which network transports are tried
-  std::vector<network_transport::tNetworkTransportPlugin*> transports_to_try;
-  for (auto it = network_transport::tNetworkTransportPlugin::GetAll().begin(); it != network_transport::tNetworkTransportPlugin::GetAll().end(); ++it)
-  {
-    if (preferred_transport == (*it)->GetName())
-    {
-      transports_to_try.insert(transports_to_try.begin(), *it);
-    }
-    else
-    {
-      transports_to_try.push_back(*it);
-    }
-  }
-
-  if (disconnect)
-  {
-    // try disconnecting with all available transport plugins
-    for (auto it = transports_to_try.begin(); it != transports_to_try.end(); ++it)
-    {
-      (*it)->Disconnect(*local_port, remote_runtime_uuid, remote_port_handle, remote_port_link);
-    }
-    return "";
-  }
-
-  // try connecting
-  for (auto it = transports_to_try.begin(); it != transports_to_try.end(); ++it)
-  {
-    std::string result = (*it)->Connect(*local_port, remote_runtime_uuid, remote_port_handle, remote_port_link);
-    if (result.length() == 0)
-    {
-      FINROC_LOG_PRINT(USER, "Connected local port '", local_port->GetQualifiedLink(), "' to remote port '", remote_port_link, "' via ", (*it)->GetName());
-      return "";
-    }
-  }
-
-  return_message = "Could not connect local port " + local_port->GetQualifiedLink() + " to remote port " + remote_port_link + " using any available network transport plugin.";
-  FINROC_LOG_PRINT(WARNING, return_message);
-  return return_message;
+  const char* message = "tAdministrationService::NetworkConnect() is superseded. Please use a newer version of your tool that uses CreateUriConnector().";
+  FINROC_LOG_PRINT(WARNING, message);
+  return message;
 }
 
 void tAdministrationService::PauseExecution(int element_handle)
@@ -551,12 +538,12 @@ void tAdministrationService::SaveAllFinstructableFiles()
         }
         else
         {
-          FINROC_LOG_PRINT(ERROR, "Element invalidly flagged as finstructable: ", it->GetQualifiedLink());
+          FINROC_LOG_PRINT(ERROR, "Element invalidly flagged as finstructable: ", *it);
         }
       }
       catch (const std::exception& e)
       {
-        FINROC_LOG_PRINT(ERROR, "Error saving finstructable group ", it->GetQualifiedLink());
+        FINROC_LOG_PRINT(ERROR, "Error saving finstructable group ", *it);
         FINROC_LOG_PRINT(ERROR, e);
       }
     }
@@ -577,12 +564,12 @@ void tAdministrationService::SaveFinstructableGroup(int group_handle)
       }
       else
       {
-        FINROC_LOG_PRINT(ERROR, "Element invalidly flagged as finstructable: ", group->GetQualifiedLink());
+        FINROC_LOG_PRINT(ERROR, "Element invalidly flagged as finstructable: ", *group);
       }
     }
     catch (const std::exception& e)
     {
-      FINROC_LOG_PRINT(ERROR, "Error saving finstructable group ", group->GetQualifiedLink());
+      FINROC_LOG_PRINT(ERROR, "Error saving finstructable group ", *group);
       FINROC_LOG_PRINT(ERROR, e);
     }
   }
@@ -601,7 +588,7 @@ void tAdministrationService::SetAnnotation(int element_handle, const rrlib::seri
   }
   else
   {
-    rrlib::serialization::tInputStream input_stream(serialized_annotation, rrlib::serialization::tTypeEncoding::NAMES);
+    rrlib::serialization::tInputStream input_stream(serialized_annotation, cBASIC_UID_SERIALIZATION_INFO);
     rrlib::rtti::tType type;
     input_stream >> type;
     if (!type)
@@ -640,6 +627,16 @@ void tAdministrationService::SetAnnotation(int element_handle, const rrlib::seri
 
 std::string tAdministrationService::SetPortValue(int port_handle, const rrlib::serialization::tMemoryBuffer& serialized_new_value)
 {
+  enum tDataEncoding
+  {
+    BINARY,
+    STRING,
+    XML,
+    STATIC_CAST,
+    DOUBLE_STATIC_CAST,
+    DIMENSION
+  };
+
   core::tAbstractPort* port = Runtime().GetPort(port_handle);
   std::string error_message;
   if (port && port->IsReady())
@@ -654,21 +651,46 @@ std::string tAdministrationService::SetPortValue(int port_handle, const rrlib::s
     {
       try
       {
-        rrlib::serialization::tInputStream input_stream(serialized_new_value, rrlib::serialization::tTypeEncoding::NAMES);
-        rrlib::serialization::tDataEncoding encoding;
-        input_stream >> encoding;
+        rrlib::serialization::tInputStream input_stream(serialized_new_value, cBASIC_UID_SERIALIZATION_INFO);
+        uint8_t encoding = input_stream.ReadByte();
+        if (encoding >= DIMENSION)
+        {
+          throw std::runtime_error("Invalid encoding");
+        }
         data_ports::tGenericPort wrapped_port = data_ports::tGenericPort::Wrap(*port);
         data_ports::tPortDataPointer<rrlib::rtti::tGenericObject> buffer = wrapped_port.GetUnusedBuffer();
-        buffer->Deserialize(input_stream, encoding);
+        if (encoding <= XML)
+        {
+          buffer->Deserialize(input_stream, static_cast<rrlib::serialization::tDataEncoding>(encoding));
+        }
+        else
+        {
+          rrlib::serialization::tDataEncoding encoding2;
+          input_stream >> encoding2;
+          rrlib::rtti::tType type = rrlib::rtti::tType::GetType(input_stream.ReadShort());
+          rrlib::rtti::conversion::tCompiledConversionOperation operation;
+          if (encoding == STATIC_CAST)
+          {
+            operation = rrlib::rtti::conversion::tConversionOperationSequence(rrlib::rtti::conversion::tStaticCastOperation::GetInstance()).Compile(false, type, wrapped_port.GetDataType());
+          }
+          else
+          {
+            rrlib::rtti::tType inter_type = rrlib::rtti::tType::GetType(input_stream.ReadShort());
+            operation = rrlib::rtti::conversion::tConversionOperationSequence(rrlib::rtti::conversion::tStaticCastOperation::GetInstance(), rrlib::rtti::conversion::tStaticCastOperation::GetInstance(), inter_type).Compile(false, type, wrapped_port.GetDataType());
+          }
+          std::unique_ptr<rrlib::rtti::tGenericObject> object(type.CreateGenericObject());
+          object->Deserialize(input_stream, encoding2);
+          operation.Convert(*object, *buffer);
+        }
         error_message = wrapped_port.BrowserPublish(buffer);
         if (error_message.length() > 0)
         {
-          FINROC_LOG_PRINT(WARNING, "Setting value of port '", port->GetQualifiedName(), "' failed: ", error_message);
+          FINROC_LOG_PRINT(WARNING, "Setting value of port '", port, "' failed: ", error_message);
         }
       }
       catch (const std::exception& e)
       {
-        FINROC_LOG_PRINT(WARNING, "Setting value of port '", port->GetQualifiedName(), "' failed: ", e);
+        FINROC_LOG_PRINT(WARNING, "Setting value of port '", port, "' failed: ", e);
         error_message = e.what();
       }
       return error_message;

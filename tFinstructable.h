@@ -169,8 +169,6 @@ private:
   const std::string& xml_file;
 
 
-  virtual void AnnotatedObjectInitialized() override;
-
   /*!
    * Helper method to collect .so files that need to be loaded before the contents of
    * this XML file can be instantiated.
@@ -181,24 +179,24 @@ private:
   static void AddDependency(const tSharedLibrary& dependency);
 
   /*!
-   * \param cRelative port link
-   * \return Port - or null if it couldn't be found
+   * \param path Relative path to port
+   * \return Port - or nullptr if it couldn't be found
    */
-  core::tAbstractPort* GetChildPort(const std::string& link);
+  core::tAbstractPort* GetChildPort(const core::tPath& path);
 
   /*!
-   * \param target_link (as from link edge)
-   * \param this_group_link Qualified link of this finstructable group
-   * \return Relative link to this port (or absolute link if it is globally unique)
+   * \param target_path Target's absolute path (as from internal URI connector)
+   * \param this_group_path Path of this finstructable group
+   * \return Relative path to target (or absolute path if it is outside this group)
    */
-  std::string GetEdgeLink(const std::string& target_link, const std::string& this_group_link);
+  core::tPath GetConnectorPath(const core::tPath& target_path, const core::tPath& this_group_path);
 
   /*!
-   * \param ap Port
-   * \param this_group_link Qualified link of this finstructable group
-   * \return Relative link to this port (or absolute link if it is globally unique)
+   * \param port Port
+   * \param this_group_path Path of this finstructable group
+   * \return Relative path to port (or absolute path if it is outside this group)
    */
-  std::string GetEdgeLink(core::tAbstractPort& ap, const std::string& this_group_link);
+  core::tPath GetConnectorPath(core::tAbstractPort& port, const core::tPath& this_group_path);
 
   /*!
    * \return Root framework element that this annotation belongs to
@@ -237,6 +235,8 @@ private:
    */
   void LoadParameter(const rrlib::xml::tNode& node, core::tAbstractPort& parameter_port);
 
+  virtual void OnInitialization() override;
+
   /*!
    * Recursive helper function for loading parameter_links section of XML file
    *
@@ -244,15 +244,6 @@ private:
    * \param element Framework element corresponding to node
    */
   void ProcessParameterLinksNode(const rrlib::xml::tNode& node, core::tFrameworkElement& element);
-
-  /*!
-   * Make fully-qualified link from relative one
-   *
-   * \param link Relative Link
-   * \param this_group_link Qualified link of this finstructable group
-   * \return Fully-qualified link
-   */
-  std::string QualifyLink(const std::string& link, const std::string& this_group_link);
 
   /*!
    * Recursive helper function for saving parameter_links section of XML file
@@ -264,20 +255,20 @@ private:
   bool SaveParameterConfigEntries(rrlib::xml::tNode& node, core::tFrameworkElement& element);
 
   /*!
-   * Serialize children of specified framework element
-   *
-   * \param node XML node to serialize to
-   * \param current Framework element
-   */
-  void SerializeChildren(rrlib::xml::tNode& node, core::tFrameworkElement& current);
-
-  /*!
    * Recursive helper function for ScanForCommandLineArgs
    *
    * \param result Result list
    * \param parent Node to scan childs of
    */
   static void ScanForCommandLineArgsHelper(std::vector<std::string>& result, const rrlib::xml::tNode& parent);
+
+  /*!
+   * Serialize children of specified framework element
+   *
+   * \param node XML node to serialize to
+   * \param current Framework element
+   */
+  void SerializeChildren(rrlib::xml::tNode& node, core::tFrameworkElement& current);
 
   /*!
    * Perform some static initialization w.r.t. to state at program startup
