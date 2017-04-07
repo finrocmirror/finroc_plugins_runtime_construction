@@ -107,7 +107,7 @@ tPortCreationList::tPortCreationList() :
   list(),
   io_vector(NULL),
   flags(tFlags()),
-  ports_flagged_finstructed()
+  ports_flagged_finstructed(true)
 {}
 
 tPortCreationList::tPortCreationList(core::tFrameworkElement& port_group, tFlags flags, const tPortCreateOptions& selectable_create_options, bool ports_flagged_finstructed) :
