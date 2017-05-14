@@ -301,21 +301,18 @@ void tAdministrationService::DeleteElement(int element_handle)
   }
 }
 
-bool tAdministrationService::DeleteUriConnector(int local_port_handle, const rrlib::uri::tURI& uri)
+bool tAdministrationService::DeleteUriConnector(int local_port_handle, uint index)
 {
   core::tAbstractPort* port = core::tRuntimeEnvironment::GetInstance().GetPort(local_port_handle);
   std::stringstream result;
   if (port && port->IsReady())
   {
-    for (auto & connector : port->UriConnectors())
+    if (port->UriConnectors().size() > index && port->UriConnectors()[index])
     {
-      if (connector->Uri() == uri)
-      {
-        connector->Disconnect();
-        return true;
-      }
+      port->UriConnectors()[index]->Disconnect();
+      return true;
     }
-    result << "No connector with URI " << uri.ToString() << " found";
+    result << "No URI connector with index " << index << " found";
   }
   else
   {

@@ -153,10 +153,10 @@ public:
    * Delete URI connector
    *
    * \param local_port_handle Handle of local owner port
-   * \param uri URI of partner port
+   * \param index Index of URI connector in owner port's list
    * \return Whether any connector was deleted
    */
-  bool DeleteUriConnector(int local_port_handle, const rrlib::uri::tURI& uri);
+  bool DeleteUriConnector(int local_port_handle, uint index);
 
   /*!
    * Disconnect the two ports
