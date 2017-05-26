@@ -417,14 +417,12 @@ void tFinstructable::LoadXml()
               {
                 FINROC_LOG_PRINT(WARNING, "Cannot create connector because neither port is available: ", source_uri_parsed.path, ", ", destination_uri_parsed.path);
               }
-              else if (source_port == nullptr || source_port->GetFlag(tFlag::VOLATILE))    // source volatile
+              else if (source_port == nullptr || source_port->GetFlag(tFlag::VOLATILE))
               {
-                connect_options.flags |= core::tConnectionFlag::RECONNECT;
                 destination_port->ConnectTo(path_to_this.Append(source_uri_parsed.path), connect_options);
               }
-              else if (destination_port == nullptr || destination_port->GetFlag(tFlag::VOLATILE))    // destination volatile
+              else if (destination_port == nullptr || destination_port->GetFlag(tFlag::VOLATILE))
               {
-                connect_options.flags |= core::tConnectionFlag::RECONNECT;
                 source_port->ConnectTo(path_to_this.Append(destination_uri_parsed.path), connect_options);
               }
               else
