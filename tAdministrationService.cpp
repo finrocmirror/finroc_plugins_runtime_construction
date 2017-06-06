@@ -81,7 +81,7 @@ static rpc_ports::tRPCInterfaceType<tAdministrationService> cTYPE("Administratio
     &tAdministrationService::LoadModuleLibrary, &tAdministrationService::PauseExecution, &tAdministrationService::SaveAllFinstructableFiles,
     &tAdministrationService::SaveFinstructableGroup, &tAdministrationService::SetAnnotation, &tAdministrationService::SetPortValue,
     &tAdministrationService::StartExecution, &tAdministrationService::NetworkConnect, &tAdministrationService::ConnectPorts,  // NetworkConnect etc. are last in order to not break binary compatibility
-    &tAdministrationService::CreateUriConnector, &tAdministrationService::DeleteUriConnector);
+    &tAdministrationService::CreateUriConnector, &tAdministrationService::DeleteUriConnector, &tAdministrationService::GetRegisterUpdates);
 
 static tAdministrationService administration_service;
 
@@ -453,6 +453,15 @@ rrlib::serialization::tMemoryBuffer tAdministrationService::GetParameterInfo(int
   return result_buffer;
 }
 
+rrlib::serialization::tRegisterUpdate tAdministrationService::GetRegisterUpdates(int register_uid)
+{
+  if (register_uid < 0 || register_uid >= rrlib::serialization::cMAX_PUBLISHED_REGISTERS)
+  {
+    throw std::runtime_error("Invalid register uid");
+  }
+  return rrlib::serialization::tRegisterUpdate(register_uid);
+}
+
 tAdministrationService::tExecutionStatus tAdministrationService::IsExecuting(int element_handle)
 {
   std::vector<scheduling::tExecutionControl*> controls;
@@ -595,7 +604,7 @@ void tAdministrationService::SetAnnotation(int element_handle, const rrlib::seri
     else
     {
       core::tAnnotation* annotation = element->GetAnnotation(type.GetRttiName());
-      if (annotation == NULL)
+      if (!annotation)
       {
         FINROC_LOG_PRINT(ERROR, "Creating new annotations not supported yet. Canceling setting of annotation.");
       }

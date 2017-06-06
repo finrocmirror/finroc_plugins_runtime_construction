@@ -43,6 +43,7 @@
 //----------------------------------------------------------------------
 // External includes (system with <>, local with "")
 //----------------------------------------------------------------------
+#include "rrlib/serialization/tRegisterUpdate.h"
 #include "plugins/rpc_ports/tServerPort.h"
 
 //----------------------------------------------------------------------
@@ -98,6 +99,7 @@ public:
 
 
   /*!
+   * (superseded by ConnectPorts)
    * Connect source port to destination port
    *
    * \param source_port_handle Handle of source port
@@ -183,6 +185,8 @@ public:
   rrlib::serialization::tMemoryBuffer GetAnnotation(int element_handle, const std::string& annotation_type_name);
 
   /*!
+   * (superseded by GetRegisterUpdates)
+   *
    * \return All actions for creating framework element currently registered in this runtime environment - serialized
    */
   rrlib::serialization::tMemoryBuffer GetCreateModuleActions();
@@ -199,6 +203,15 @@ public:
   rrlib::serialization::tMemoryBuffer GetParameterInfo(int root_element_handle);
 
   /*!
+   * Gets all updates on specified register and all registers to be updated on change.
+   * After calling this method, the client's data on these remote registers is up to date.
+   *
+   * \param register_uid Uid of register to obtain updates for
+   * \return Updates (object does not need to be processed - does its work during deserialization)
+   */
+  rrlib::serialization::tRegisterUpdate GetRegisterUpdates(int register_uid);
+
+  /*!
    * \param element_handle Handle of framework element
    * \return Is specified framework element currently executing?
    */
@@ -208,11 +221,13 @@ public:
    * Dynamically loads specified module library (.so file)
    *
    * \param library_name File name of library to load
-   * \return Available module libraries (.so files) that have not been loaded yet - serialized (Updated version)
+   * \return Empty memory buffer (used to be buffer with all actions for creating framework element currently registered in this runtime environment - serialized)
    */
   rrlib::serialization::tMemoryBuffer LoadModuleLibrary(const std::string& library_name);
 
   /*!
+   * (superseded by CreateUriConnector)
+   *
    * Connect local port to port in remote runtime environment using one of the
    * available network transport plugins.
    *
