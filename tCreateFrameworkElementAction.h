@@ -78,7 +78,7 @@ class tCreateFrameworkElementAction : private rrlib::util::tNoncopyable
 //----------------------------------------------------------------------
 public:
 
-  typedef rrlib::serialization::tRegister<tCreateFrameworkElementAction*, 64, 128, uint16_t> tRegister;
+  typedef rrlib::serialization::tRegister<tCreateFrameworkElementAction*, 64, 128, uint32_t> tRegister;
 
   tCreateFrameworkElementAction();
 
