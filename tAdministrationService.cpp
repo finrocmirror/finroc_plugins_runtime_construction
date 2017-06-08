@@ -147,7 +147,7 @@ std::string tAdministrationService::ConnectPorts(int source_port_handle, int des
   }
   if (source_port->GetFlag(cVOLATILE) && destination_port->GetFlag(cVOLATILE))
   {
-    FINROC_LOG_PRINT(WARNING, "Cannot really persistently connect two network ports: ", source_port, ", ", destination_port);
+    FINROC_LOG_PRINT(WARNING, "Cannot really persistently connect two network ports: '", *source_port, "' and '", *destination_port, "'");
   }
 
   // Connect
@@ -170,7 +170,7 @@ std::string tAdministrationService::ConnectPorts(int source_port_handle, int des
   }
   catch (const std::exception& e)
   {
-    result << "Could not connect ports '" << source_port << "' and '" << destination_port << "'. Reason: " << e.what();
+    result << "Could not connect ports '" << (*source_port) << "' and '" << (*destination_port) << "'. Reason: " << e.what();
     FINROC_LOG_PRINT(WARNING, result.str());
     return result.str();
   }
@@ -178,12 +178,12 @@ std::string tAdministrationService::ConnectPorts(int source_port_handle, int des
   // Connection check
   if (!source_port->IsConnectedTo(*destination_port))
   {
-    result << "Could not connect ports '" << source_port << "' and '" << destination_port << "' (see output of connected Finroc program for details).";
+    result << "Could not connect ports '" << (*source_port) << "' and '" << (*destination_port) << "' (see output of connected Finroc program for details).";
     FINROC_LOG_PRINT(WARNING, result.str());
   }
   else
   {
-    FINROC_LOG_PRINT(USER, "Connected ports ", source_port, " ", destination_port);
+    FINROC_LOG_PRINT(USER, "Connected ports '", *source_port, "' and '", *destination_port, "'");
   }
   return result.str();
 }
@@ -210,7 +210,7 @@ std::string tAdministrationService::CreateModule(uint32_t create_action_index, c
     {
       tCreateFrameworkElementAction* create_action = create_actions[create_action_index];
       core::tFrameworkElement* parent = core::tRuntimeEnvironment::GetInstance().GetElement(parent_handle);
-      if (parent == NULL || (!parent->IsReady()))
+      if (parent == nullptr || (!parent->IsReady()))
       {
         error_message = "Parent not available. Cancelling remote module creation.";
       }
@@ -220,7 +220,7 @@ std::string tAdministrationService::CreateModule(uint32_t create_action_index, c
       }
       else
       {
-        FINROC_LOG_PRINT(USER, "Creating Module ", parent, "/", module_name);
+        FINROC_LOG_PRINT(USER, "Creating Module ", *parent, "/", module_name);
         std::unique_ptr<tConstructorParameters> parameters;
         if (create_action->GetParameterTypes() && create_action->GetParameterTypes()->Size() > 0)
         {
@@ -343,11 +343,11 @@ void tAdministrationService::Disconnect(int source_port_handle, int destination_
   source_port->DisconnectFrom(*destination_port);
   if (source_port->IsConnectedTo(*destination_port))
   {
-    FINROC_LOG_PRINT(WARNING, "Could not disconnect ports ", source_port, " ", destination_port);
+    FINROC_LOG_PRINT(WARNING, "Could not disconnect ports '", *source_port, "' and '", *destination_port, "'");
   }
   else
   {
-    FINROC_LOG_PRINT(USER, "Disconnected ports ", source_port, " ", destination_port);
+    FINROC_LOG_PRINT(USER, "Disconnected ports '", *source_port, "' and '", *destination_port, "'");
   }
 }
 
@@ -360,7 +360,7 @@ void tAdministrationService::DisconnectAll(int port_handle)
     return;
   }
   port->DisconnectAll();
-  FINROC_LOG_PRINT(USER, "Disconnected port ", port);
+  FINROC_LOG_PRINT(USER, "Disconnected port '", *port, "'");
 }
 
 rrlib::serialization::tMemoryBuffer tAdministrationService::GetAnnotation(int element_handle, const std::string& annotation_type_name)
@@ -691,12 +691,16 @@ std::string tAdministrationService::SetPortValue(int port_handle, const rrlib::s
         error_message = wrapped_port.BrowserPublish(buffer);
         if (error_message.length() > 0)
         {
-          FINROC_LOG_PRINT(WARNING, "Setting value of port '", port, "' failed: ", error_message);
+          FINROC_LOG_PRINT(WARNING, "Setting value of port '", *port, "' failed: ", error_message);
+        }
+        if (input_stream.Remaining())
+        {
+          FINROC_LOG_PRINT(WARNING, "Did not read all bytes in provided memory buffer");
         }
       }
       catch (const std::exception& e)
       {
-        FINROC_LOG_PRINT(WARNING, "Setting value of port '", port, "' failed: ", e);
+        FINROC_LOG_PRINT(WARNING, "Setting value of port '", *port, "' failed: ", e);
         error_message = e.what();
       }
       return error_message;
