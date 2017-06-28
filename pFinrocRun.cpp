@@ -253,7 +253,7 @@ int main(int argc, char **argv)
   }
 
   finroc::structure::InstallCrashHandler();
-  finroc::structure::ConnectTCPPeer(finroc_files[0].main_name);
+  finroc::structure::SetRuntimeName(finroc_files[0].main_name);
 
   return finroc::structure::InitializeAndRunMainLoop(basename(argv[0]));
 }
