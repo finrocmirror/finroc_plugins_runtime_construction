@@ -112,7 +112,7 @@ void tFinstructable::AddDependency(const rrlib::rtti::tType& dt)
 
 core::tAbstractPort* tFinstructable::GetChildPort(const core::tPath& path)
 {
-  tFrameworkElement* element = GetFrameworkElement()->GetChild(path);
+  tFrameworkElement* element = GetFrameworkElement()->GetDescendant(path);
   if (element && element->IsPort())
   {
     return static_cast<core::tAbstractPort*>(element);
