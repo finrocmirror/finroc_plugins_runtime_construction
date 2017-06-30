@@ -329,6 +329,7 @@ void tFinstructable::LoadXml()
       }
 
       // Load all remaining XML elements
+      bool this_is_outermost_composite_component = GetFrameworkElement()->GetParentWithFlags(tFlag::FINSTRUCTABLE_GROUP) == nullptr;
       for (rrlib::xml::tNode::const_iterator node = root.ChildrenBegin(); node != root.ChildrenEnd(); ++node)
       {
         std::string name = node->Name();
@@ -419,11 +420,27 @@ void tFinstructable::LoadXml()
               }
               else if (source_port == nullptr || source_port->GetFlag(tFlag::VOLATILE))
               {
-                destination_port->ConnectTo(path_to_this.Append(source_uri_parsed.path), connect_options);
+                if (source_uri_parsed.path.IsAbsolute() && this_is_outermost_composite_component)
+                {
+                  FINROC_LOG_PRINT(WARNING, "Interpreting absolute connector source path (", source_uri_parsed.path, ") as legacy TCP connection");
+                  destination_port->ConnectTo(rrlib::uri::tURI("tcp:" + rrlib::uri::tURI(source_uri_parsed.path).ToString()));
+                }
+                else
+                {
+                  destination_port->ConnectTo(source_uri_parsed.path.IsAbsolute() ? source_uri_parsed.path : path_to_this.Append(source_uri_parsed.path), connect_options);
+                }
               }
               else if (destination_port == nullptr || destination_port->GetFlag(tFlag::VOLATILE))
               {
-                source_port->ConnectTo(path_to_this.Append(destination_uri_parsed.path), connect_options);
+                if (destination_uri_parsed.path.IsAbsolute() && this_is_outermost_composite_component)
+                {
+                  FINROC_LOG_PRINT(WARNING, "Interpreting absolute connector destination path (", destination_uri_parsed.path, ") as legacy TCP connection");
+                  source_port->ConnectTo(rrlib::uri::tURI("tcp:" + rrlib::uri::tURI(destination_uri_parsed.path).ToString()));
+                }
+                else
+                {
+                  source_port->ConnectTo(destination_uri_parsed.path.IsAbsolute() ? destination_uri_parsed.path : path_to_this.Append(destination_uri_parsed.path), connect_options);
+                }
               }
               else
               {
