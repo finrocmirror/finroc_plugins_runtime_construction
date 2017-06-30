@@ -201,6 +201,10 @@ int main(int argc, char **argv)
     if (argument.length() > cFINROC_FILE_EXTENSION.length() && argument.find(cFINROC_FILE_EXTENSION) != std::string::npos)
     {
       finroc_files.push_back(tFinrocFile(argument));
+      if (finroc_files.size() == 1)
+      {
+        finroc::structure::SetRuntimeName(finroc_files[0].main_name);
+      }
 
       // Scan for additional command line arguments (possibly specified in .finroc file)
       finroc_file_extra_args = finroc::runtime_construction::tFinstructable::ScanForCommandLineArgs(finroc_files.back().file_name);
@@ -253,7 +257,6 @@ int main(int argc, char **argv)
   }
 
   finroc::structure::InstallCrashHandler();
-  finroc::structure::SetRuntimeName(finroc_files[0].main_name);
 
   return finroc::structure::InitializeAndRunMainLoop(basename(argv[0]));
 }
