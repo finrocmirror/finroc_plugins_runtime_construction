@@ -37,6 +37,7 @@
 #include "core/file_lookup.h"
 #include "core/tRuntimeEnvironment.h"
 #include "plugins/parameters/internal/tParameterInfo.h"
+#include "rrlib/rtti/tStaticTypeRegistration.h"
 
 //----------------------------------------------------------------------
 // Internal includes with ""
@@ -103,10 +104,10 @@ void tFinstructable::AddDependency(const tSharedLibrary& dependency)
 
 void tFinstructable::AddDependency(const rrlib::rtti::tType& dt)
 {
-  tSharedLibrary shared_library = GetDataTypeDependency(dt);
-  if (shared_library.IsValid())
+  auto shared_library_string = rrlib::rtti::tStaticTypeRegistration::GetTypeRegistrationSharedLibrary(dt);
+  if (shared_library_string)
   {
-    AddDependency(shared_library);
+    AddDependency(tSharedLibrary(shared_library_string));
   }
 }
 

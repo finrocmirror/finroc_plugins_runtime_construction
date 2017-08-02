@@ -165,15 +165,6 @@ public:
 
 static tRuntimeConstructionPlugin plugin;
 
-/*! Data type annotation */
-struct tTypeInfo
-{
-  uint8_t dynamically_loaded; //!< 1 if type was initialized during dynamic loading; 0 otherwise
-
-  tTypeInfo(uint8_t dynamically_loaded = 0) : dynamically_loaded(dynamically_loaded)
-  {}
-};
-
 } // namespace internal
 
 // closes dlopen-ed libraries
@@ -204,19 +195,11 @@ typedef rrlib::design_patterns::tSingletonHolder<tDLCloser, rrlib::design_patter
 
 void DLOpen(const tSharedLibrary& shared_library)
 {
-  size_t type_count_before = rrlib::rtti::tType::GetTypeCount();
   void* handle = dlopen(shared_library.ToString(true).c_str(), RTLD_NOW | RTLD_GLOBAL);
   if (handle)
   {
     tDLCloserInstance::Instance().loaded.push_back(handle);
     core::internal::tPlugins::GetInstance().InitializeNewPlugins();
-
-    // Flag any loaded types
-    internal::tTypeInfo info(1);
-    for (size_t i = type_count_before, n = rrlib::rtti::tType::GetTypeCount(); i < n; i++)
-    {
-      rrlib::rtti::tType::GetType(i).AddAnnotation(info);
-    }
 
     return;
   }
@@ -284,33 +267,6 @@ tSharedLibrary GetBinary(void* addr)
 #else
   return tSharedLibrary();
 #endif
-}
-
-tSharedLibrary GetDataTypeDependency(const rrlib::rtti::tType& type)
-{
-  tSharedLibrary result;
-  if (type.GetAnnotation<internal::tTypeInfo>().dynamically_loaded)
-  {
-    std::string name = type.GetPlainTypeName();
-    std::vector<std::string> name_parts;
-    rrlib::util::Tokenize(name, name_parts, "._");
-    if (name_parts.size() > 1)
-    {
-      std::vector<std::string> so_name_parts;
-      for (auto & loaded : GetLoadedFinrocLibraries())
-      {
-        rrlib::util::Tokenize(loaded.ToString(), so_name_parts, "_");
-        if (so_name_parts.size() > name_parts.size() && so_name_parts.front() == name_parts.front())
-        {
-          if (std::equal(name_parts.begin() + 1, name_parts.end(), so_name_parts.begin() + 2) && ((!result.IsValid()) || loaded.ToString().length() < result.ToString().length()))
-          {
-            result = loaded;
-          }
-        }
-      }
-    }
-  }
-  return result;
 }
 
 std::set<tSharedLibrary> GetLoadedFinrocLibraries()
