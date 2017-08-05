@@ -292,7 +292,7 @@ void tAdministrationService::DeleteElement(int element_handle)
   core::tFrameworkElement* element = Runtime().GetElement(element_handle);
   if (element && (!element->IsDeleted()))
   {
-    FINROC_LOG_PRINT(USER, "Deleting element ", element);
+    FINROC_LOG_PRINT(USER, "Deleting element ", *element);
     element->ManagedDelete();
   }
   else
