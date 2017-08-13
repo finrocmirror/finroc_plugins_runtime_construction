@@ -829,7 +829,7 @@ void tFinstructable::SaveXml()
         const rrlib::rtti::conversion::tConversionOperationSequence& conversion_operations = entry.second.first ? entry.second.first->ConversionOperations() : entry.second.second->ConversionOperations();
         if (conversion_operations.Size())
         {
-          rrlib::xml::tNode& conversion = root.AddChildNode("conversion");
+          rrlib::xml::tNode& conversion = edge.AddChildNode("conversion");
           conversion.SetAttribute(conversion_operations.Size() == 2 ? "operation1" : "operation", conversion_operations[0].first);
           if (conversion_operations.GetParameterValue(0))
           {
