@@ -871,7 +871,11 @@ void tFinstructable::SaveXml()
       }
 
       // Save parameter config entries
-      SaveParameterConfigEntries(root.AddChildNode("parameter_links"), *GetFrameworkElement());
+      auto& parameter_node = root.AddChildNode("parameter_links");
+      if (!SaveParameterConfigEntries(parameter_node, *GetFrameworkElement()))
+      {
+        root.RemoveChildNode(parameter_node);
+      }
 
       // add dependencies
       if (dependencies_tmp.size() > 0)
