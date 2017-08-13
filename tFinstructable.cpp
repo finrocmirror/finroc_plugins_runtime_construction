@@ -88,6 +88,9 @@ static std::set<tSharedLibrary> startup_loaded_finroc_libs;
 /*! We do not want to have this prefix in XML file names, as this will not be found when a system installation is used */
 static const char* cUNWANTED_XML_FILE_PREFIX = "sources/cpp/";
 
+/*! Characters that are not escaped in path URIs */
+static const std::string cUNENCODED_RESERVED_CHARACTERS_PATH = rrlib::uri::tURI::cUNENCODED_RESERVED_CHARACTERS_PATH + std::string(" ");
+
 tFinstructable::tFinstructable(const std::string& xml_file) :
   main_name(),
   xml_file(xml_file)
@@ -765,7 +768,7 @@ void tFinstructable::SaveXml()
             continue;
           }
 
-          std::pair<rrlib::uri::tURI, rrlib::uri::tURI> key(GetConnectorPath(port.GetPath(), this_path), GetConnectorPath(it->Destination().GetPath(), this_path));
+          std::pair<rrlib::uri::tURI, rrlib::uri::tURI> key(rrlib::uri::tURI(GetConnectorPath(port.GetPath(), this_path), cUNENCODED_RESERVED_CHARACTERS_PATH.c_str()), rrlib::uri::tURI(GetConnectorPath(it->Destination().GetPath(), this_path), cUNENCODED_RESERVED_CHARACTERS_PATH.c_str()));
           std::pair<core::tConnector*, core::tUriConnector*> value(&(*it), nullptr);
           connector_map.emplace(key, value);
         }
@@ -780,7 +783,7 @@ void tFinstructable::SaveXml()
             continue;
           }
 
-          std::pair<rrlib::uri::tURI, rrlib::uri::tURI> key(GetConnectorPath(port.GetPath(), this_path), connector->Uri());
+          std::pair<rrlib::uri::tURI, rrlib::uri::tURI> key(rrlib::uri::tURI(GetConnectorPath(port.GetPath(), this_path), cUNENCODED_RESERVED_CHARACTERS_PATH.c_str()), connector->Uri());
 
           // local URI connectors should be saved in innermost composite component that contains both ports (common parent); if there is no such port, then save in outermost composite component
           if (typeid(*connector) == typeid(core::internal::tLocalUriConnector))
@@ -802,8 +805,8 @@ void tFinstructable::SaveXml()
             }
 
             rrlib::uri::tURI port_uri = key.first;
-            key.first = source_uri ? rrlib::uri::tURI(path) : port_uri;
-            key.second = source_uri ? port_uri : rrlib::uri::tURI(path);
+            key.first = source_uri ? rrlib::uri::tURI(path, cUNENCODED_RESERVED_CHARACTERS_PATH.c_str()) : port_uri;
+            key.second = source_uri ? port_uri : rrlib::uri::tURI(path, cUNENCODED_RESERVED_CHARACTERS_PATH.c_str());
           }
 
           std::pair<core::tConnector*, core::tUriConnector*> value(nullptr, connector.get());
