@@ -134,7 +134,7 @@ struct tFinrocFile
   }
 };
 
-int cycle_time = 40;
+rrlib::time::tDuration cycle_time = std::chrono::milliseconds(40);
 std::vector<std::string> finroc_file_extra_args;
 std::vector<tFinrocFile> finroc_files;
 
@@ -146,15 +146,24 @@ bool CycleTimeHandler(const rrlib::getopt::tNameToOptionMap &name_to_option_map)
   rrlib::getopt::tOption time_option(name_to_option_map.at("cycle-time"));
   if (time_option->IsActive())
   {
-    int time = atoi(rrlib::getopt::EvaluateValue(time_option).c_str());
-    if (time < 1 || time > 10000)
+    std::string new_time_string = rrlib::getopt::EvaluateValue(time_option);
+    rrlib::time::tDuration new_time;
+    if (new_time_string.find('.') != std::string::npos)
     {
-      FINROC_LOG_PRINT(ERROR, "Invalid cycle time '", time, "'. Using default: ", cycle_time, " ms");
+      new_time = std::chrono::nanoseconds(static_cast<int64_t>(std::atof(new_time_string.c_str()) * 1000000));
     }
     else
     {
-      FINROC_LOG_PRINT(DEBUG, "Setting main thread cycle time to ", time, " ms.");
-      cycle_time = time;
+      new_time = std::chrono::milliseconds(std::atoi(new_time_string.c_str()));
+    }
+    if (new_time.count() <= 0 || new_time > std::chrono::seconds(10))
+    {
+      FINROC_LOG_PRINT(ERROR, "Invalid cycle time '", new_time_string, "'. Using default: ", cycle_time);
+    }
+    else
+    {
+      FINROC_LOG_PRINT(DEBUG, "Setting main thread cycle time to ", std::chrono::duration_cast<std::chrono::duration<double>>(new_time).count() * 1000, " ms.");
+      cycle_time = new_time;
     }
   }
 
