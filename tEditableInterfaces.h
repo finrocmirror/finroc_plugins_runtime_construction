@@ -85,6 +85,13 @@ class tEditableInterfaces : public core::tAnnotation
 //----------------------------------------------------------------------
 public:
 
+  /*! Listener notified whenever editable interfaces are changed */
+  class tListener
+  {
+  public:
+    virtual void OnEditableInterfacesChange() = 0;
+  };
+
   /*!
    * Adds interface to list of editable interfaces of its parent component
    *
@@ -93,6 +100,14 @@ public:
    * \param at_front Add interface to front of list instead of back? (Can be used to make primary interfaces appear first in finstruct dialog)
    */
   static void AddInterface(core::tPortGroup& interface, tPortCreateOptions port_create_options, bool at_front = false);
+
+  /*!
+   * \return Listener to be notified whenever editable interfaces are changed
+   */
+  tListener* GetListener() const
+  {
+    return listener;
+  }
 
   /*!
    * Loads and instantiates ports for one interface from information in xml node.
@@ -128,6 +143,14 @@ public:
    */
   void SaveInterfacePorts(rrlib::xml::tNode& node, tEditableInterfaceEntry& entry);
 
+  /*!
+   * \param Listener to be notified whenever editable interfaces are changed (may be nullptr to disable listener)
+   */
+  void SetListener(tListener* listener)
+  {
+    this->listener = listener;
+  }
+
 //----------------------------------------------------------------------
 // Private fields and methods
 //----------------------------------------------------------------------
@@ -138,6 +161,9 @@ private:
 
   /*! List of editable interfaces */
   std::vector<tEditableInterfaceEntry> editable_interfaces;
+
+  /*! Listener to be notified whenever editable interfaces are changed */
+  tListener* listener = nullptr;
 };
 
 

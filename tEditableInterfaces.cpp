@@ -209,6 +209,12 @@ rrlib::serialization::tInputStream& operator >> (rrlib::serialization::tInputStr
       stream >> port_creation_list;
     }
   }
+
+  if (interfaces.GetListener())
+  {
+    interfaces.GetListener()->OnEditableInterfacesChange();
+  }
+
   return stream;
 }
 
