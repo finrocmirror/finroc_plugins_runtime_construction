@@ -89,7 +89,10 @@ static std::set<tSharedLibrary> startup_loaded_finroc_libs;
 static const char* cUNWANTED_XML_FILE_PREFIX = "sources/cpp/";
 
 /*! Characters that are not escaped in path URIs */
-static const std::string cUNENCODED_RESERVED_CHARACTERS_PATH = rrlib::uri::tURI::cUNENCODED_RESERVED_CHARACTERS_PATH + std::string(" ");
+static const char* cUNENCODED_RESERVED_CHARACTERS_PATH = "!$&'()*+,;= @";
+
+/*! Current version of file format (YYMM) */
+static const uint cVERSION = 1703;
 
 tFinstructable::tFinstructable(const std::string& xml_file) :
   main_name(),
@@ -282,6 +285,11 @@ void tFinstructable::LoadXml()
       {
         main_name = root.GetStringAttribute("defaultname");
       }
+      uint version = 0;
+      if (root.HasAttribute("version"))
+      {
+        version = root.GetIntAttribute("version");
+      }
 
       // load dependencies
       if (root.HasAttribute("dependencies"))
@@ -362,14 +370,25 @@ void tFinstructable::LoadXml()
         }
         else if (name == "edge")
         {
-          core::tURI source_uri(node->GetStringAttribute("src"));
-          core::tURI destination_uri(node->GetStringAttribute("dest"));
+          std::string source_string = node->GetStringAttribute("src");
+          std::string destination_string = node->GetStringAttribute("dest");
+          rrlib::uri::tURI source_uri(source_string);
+          rrlib::uri::tURI destination_uri(destination_string);
+
           try
           {
             rrlib::uri::tURIElements source_uri_parsed;
             rrlib::uri::tURIElements destination_uri_parsed;
-            source_uri.Parse(source_uri_parsed);
-            destination_uri.Parse(destination_uri_parsed);
+            if (version)
+            {
+              source_uri.Parse(source_uri_parsed);
+              destination_uri.Parse(destination_uri_parsed);
+            }
+            else
+            {
+              source_uri_parsed.path = rrlib::uri::tPath(source_string);
+              destination_uri_parsed.path = rrlib::uri::tPath(destination_string);
+            }
             core::tUriConnectOptions connect_options(core::tConnectionFlag::FINSTRUCTED);
             if (node->HasAttribute("flags"))
             {
@@ -417,14 +436,13 @@ void tFinstructable::LoadXml()
             {
               core::tAbstractPort* source_port = GetChildPort(source_uri_parsed.path);
               core::tAbstractPort* destination_port = GetChildPort(destination_uri_parsed.path);
-
               if (source_port == nullptr && destination_port == nullptr)
               {
                 FINROC_LOG_PRINT(WARNING, "Cannot create connector because neither port is available: ", source_uri_parsed.path, ", ", destination_uri_parsed.path);
               }
               else if (source_port == nullptr || source_port->GetFlag(tFlag::VOLATILE))
               {
-                if (source_uri_parsed.path.IsAbsolute() && this_is_outermost_composite_component)
+                if (source_uri_parsed.path.IsAbsolute() && this_is_outermost_composite_component && version == 0)
                 {
                   FINROC_LOG_PRINT(WARNING, "Interpreting absolute connector source path (", source_uri_parsed.path, ") as legacy TCP connection");
                   destination_port->ConnectTo(rrlib::uri::tURI("tcp:" + rrlib::uri::tURI(source_uri_parsed.path).ToString()));
@@ -436,7 +454,7 @@ void tFinstructable::LoadXml()
               }
               else if (destination_port == nullptr || destination_port->GetFlag(tFlag::VOLATILE))
               {
-                if (destination_uri_parsed.path.IsAbsolute() && this_is_outermost_composite_component)
+                if (destination_uri_parsed.path.IsAbsolute() && this_is_outermost_composite_component && version == 0)
                 {
                   FINROC_LOG_PRINT(WARNING, "Interpreting absolute connector destination path (", destination_uri_parsed.path, ") as legacy TCP connection");
                   source_port->ConnectTo(rrlib::uri::tURI("tcp:" + rrlib::uri::tURI(destination_uri_parsed.path).ToString()));
@@ -720,6 +738,7 @@ void tFinstructable::SaveXml()
       {
         root.SetAttribute("defaultname", main_name);
       }
+      root.SetAttribute("version", cVERSION);
 
       // serialize any editable interfaces
       tEditableInterfaces* editable_interfaces = GetFrameworkElement()->GetAnnotation<tEditableInterfaces>();
@@ -768,7 +787,7 @@ void tFinstructable::SaveXml()
             continue;
           }
 
-          std::pair<rrlib::uri::tURI, rrlib::uri::tURI> key(rrlib::uri::tURI(GetConnectorPath(port.GetPath(), this_path), cUNENCODED_RESERVED_CHARACTERS_PATH.c_str()), rrlib::uri::tURI(GetConnectorPath(it->Destination().GetPath(), this_path), cUNENCODED_RESERVED_CHARACTERS_PATH.c_str()));
+          std::pair<rrlib::uri::tURI, rrlib::uri::tURI> key(rrlib::uri::tURI(GetConnectorPath(port.GetPath(), this_path), cUNENCODED_RESERVED_CHARACTERS_PATH), rrlib::uri::tURI(GetConnectorPath(it->Destination().GetPath(), this_path), cUNENCODED_RESERVED_CHARACTERS_PATH));
           std::pair<core::tConnector*, core::tUriConnector*> value(&(*it), nullptr);
           connector_map.emplace(key, value);
         }
@@ -783,7 +802,7 @@ void tFinstructable::SaveXml()
             continue;
           }
 
-          std::pair<rrlib::uri::tURI, rrlib::uri::tURI> key(rrlib::uri::tURI(GetConnectorPath(port.GetPath(), this_path), cUNENCODED_RESERVED_CHARACTERS_PATH.c_str()), connector->Uri());
+          std::pair<rrlib::uri::tURI, rrlib::uri::tURI> key(rrlib::uri::tURI(GetConnectorPath(port.GetPath(), this_path), cUNENCODED_RESERVED_CHARACTERS_PATH), connector->Uri());
 
           // local URI connectors should be saved in innermost composite component that contains both ports (common parent); if there is no such port, then save in outermost composite component
           if (typeid(*connector) == typeid(core::internal::tLocalUriConnector))
@@ -805,8 +824,8 @@ void tFinstructable::SaveXml()
             }
 
             rrlib::uri::tURI port_uri = key.first;
-            key.first = source_uri ? rrlib::uri::tURI(path, cUNENCODED_RESERVED_CHARACTERS_PATH.c_str()) : port_uri;
-            key.second = source_uri ? port_uri : rrlib::uri::tURI(path, cUNENCODED_RESERVED_CHARACTERS_PATH.c_str());
+            key.first = source_uri ? rrlib::uri::tURI(path, cUNENCODED_RESERVED_CHARACTERS_PATH) : port_uri;
+            key.second = source_uri ? port_uri : rrlib::uri::tURI(path, cUNENCODED_RESERVED_CHARACTERS_PATH);
           }
 
           std::pair<core::tConnector*, core::tUriConnector*> value(nullptr, connector.get());
