@@ -94,6 +94,21 @@ static const char* cUNENCODED_RESERVED_CHARACTERS_PATH = "!$&'()*+,;= @";
 /*! Current version of file format (YYMM) */
 static const uint cVERSION = 1703;
 
+static rrlib::uri::tPath ReplaceInterfaceInPath(const rrlib::uri::tPath& path, const std::string& new_interface)
+{
+  if (path.Size() < 2)
+  {
+    return path;
+  }
+  std::vector<rrlib::uri::tStringRange> path_components;
+  for (uint i = 0; i < path.Size(); i++)
+  {
+    path_components.push_back(path[i]);
+  }
+  path_components[path_components.size() - 2] = rrlib::uri::tStringRange(new_interface);
+  return rrlib::uri::tPath(path.IsAbsolute(), path_components.begin(), path_components.end());
+}
+
 tFinstructable::tFinstructable(const std::string& xml_file) :
   main_name(),
   xml_file(xml_file)
@@ -352,7 +367,40 @@ void tFinstructable::LoadXml()
           {
             try
             {
-              editable_interfaces->LoadInterfacePorts(*node);
+              core::tPortGroup& loaded_interface = editable_interfaces->LoadInterfacePorts(*node);
+
+              // Move RPC port to suitable interfaces when loading legacy files
+              if (version == 0 && (!loaded_interface.GetFlag(tFlag::INTERFACE_FOR_RPC_PORTS)))
+              {
+                for (auto it = loaded_interface.ChildPortsBegin(); it != loaded_interface.ChildPortsEnd(); ++it)
+                {
+                  if (it->GetDataType().GetTypeTraits() & rrlib::rtti::trait_flags::cIS_RPC_TYPE)
+                  {
+                    core::tFrameworkElement* services_interface = nullptr;
+                    for (auto child_interface = GetFrameworkElement()->ChildrenBegin(); child_interface != GetFrameworkElement()->ChildrenEnd(); ++child_interface)
+                    {
+                      if (child_interface->IsReady() && (!child_interface->IsPort()) && child_interface->GetFlag(tFlag::INTERFACE) && child_interface->GetFlag(tFlag::INTERFACE_FOR_RPC_PORTS))
+                      {
+                        if (services_interface)
+                        {
+                          services_interface = nullptr;
+                          break;
+                        }
+                        services_interface = &(*child_interface);
+                      }
+                    }
+
+                    if (services_interface)
+                    {
+                      FINROC_LOG_PRINT(WARNING, "Moving RPC port '", it->GetName(), "' to RPC interface '", *services_interface, "' (auto-update loading legacy files).");
+                      auto cKEEP_FLAGS = (tFlag::ACCEPTS_DATA | tFlag::EMITS_DATA | tFlag::OUTPUT_PORT | tFlag::FINSTRUCTED_PORT).Raw();
+                      tPortCreationList creation_list(static_cast<core::tPortGroup&>(*services_interface), core::tFrameworkElementFlags(it->GetAllFlags().Raw() & cKEEP_FLAGS), tPortCreateOptions());
+                      creation_list.Add(it->GetName(), it->GetDataType());
+                      it->ManagedDelete();
+                    }
+                  }
+                }
+              }
             }
             catch (const std::exception& e)
             {
@@ -436,9 +484,23 @@ void tFinstructable::LoadXml()
             {
               core::tAbstractPort* source_port = GetChildPort(source_uri_parsed.path);
               core::tAbstractPort* destination_port = GetChildPort(destination_uri_parsed.path);
+
+              // Backward-compatibility: Check whether this a connector between service interfaces now
+              if (version == 0 && source_port == nullptr && destination_port == nullptr)
+              {
+                core::tAbstractPort* service_source_port = GetChildPort(ReplaceInterfaceInPath(source_uri_parsed.path, "Services"));
+                core::tAbstractPort* service_destination_port = GetChildPort(ReplaceInterfaceInPath(destination_uri_parsed.path, "Services"));
+                if (service_source_port && service_destination_port && (service_source_port->GetDataType().GetTypeTraits() & rrlib::rtti::trait_flags::cIS_RPC_TYPE))
+                {
+                  FINROC_LOG_PRINT(WARNING, "Adjusted connector's interfaces to service interfaces (auto-update loading legacy files): now connects '", *service_source_port, "' and '", *service_destination_port, "'");
+                  source_port = service_source_port;
+                  destination_port = service_destination_port;
+                }
+              }
+
               if (source_port == nullptr && destination_port == nullptr)
               {
-                FINROC_LOG_PRINT(WARNING, "Cannot create connector because neither port is available: ", source_uri_parsed.path, ", ", destination_uri_parsed.path);
+                FINROC_LOG_PRINT(WARNING, "Cannot create connector because neither port is available: '", source_uri_parsed.path, "' and '", destination_uri_parsed.path, "'");
               }
               else if (source_port == nullptr || source_port->GetFlag(tFlag::VOLATILE))
               {

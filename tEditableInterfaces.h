@@ -114,10 +114,11 @@ public:
    * Primary use case is loading finstructable groups.
    *
    * \param node XML node to load ports from
+   * \return Interface whose ports were updated
    *
    * \throw Throws different kinds of std::exceptions if loading fails
    */
-  void LoadInterfacePorts(const rrlib::xml::tNode& node);
+  core::tPortGroup& LoadInterfacePorts(const rrlib::xml::tNode& node);
 
   /*!
    * Saves port information for all interfaces containing ports to the specified parent node.

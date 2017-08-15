@@ -32,6 +32,8 @@
 //----------------------------------------------------------------------
 // External includes (system with <>, local with "")
 //----------------------------------------------------------------------
+#include <set>
+#include "rrlib/util/join.h"
 #include "core/port/tPortFactory.h"
 
 //----------------------------------------------------------------------
@@ -374,6 +376,7 @@ const rrlib::xml::tNode& operator >> (const rrlib::xml::tNode& node, tPortCreati
   std::vector<core::tAbstractPort*> ports;
   list.GetPorts(*list.io_vector, ports, list.ports_flagged_finstructed);
   size_t i = 0u;
+  std::set<std::string> missing_types;
   for (rrlib::xml::tNode::const_iterator port = node.ChildrenBegin(); port != node.ChildrenEnd(); ++port, ++i)
   {
     core::tAbstractPort* ap = i < ports.size() ? ports[i] : NULL;
@@ -392,14 +395,30 @@ const rrlib::xml::tNode& operator >> (const rrlib::xml::tNode& node, tPortCreati
     rrlib::rtti::tType dt = rrlib::rtti::tType::FindType(dt_name);
     if (!dt)
     {
-      FINROC_LOG_PRINT_STATIC(ERROR, "Error checking port from port creation deserialization: Type " + dt_name + " not available");
-      throw std::runtime_error("Error checking port from port creation list deserialization: Type " + dt_name + " not available");
+      missing_types.insert(dt_name);
+      continue;
     }
+    if ((dt.GetTypeTraits() & rrlib::rtti::trait_flags::cIS_RPC_TYPE) && (!list.io_vector->GetFlag(core::tFrameworkElementFlag::INTERFACE_FOR_RPC_PORTS)))
+    {
+      FINROC_LOG_PRINT(WARNING, "Creating RPC port '", port->GetStringAttribute("name"), "' in non-RPC-port interface '", *list.io_vector, "'");
+    }
+    if ((dt.GetTypeTraits() & rrlib::rtti::trait_flags::cIS_RPC_TYPE) && (!list.io_vector->GetFlag(core::tFrameworkElementFlag::INTERFACE_FOR_DATA_PORTS)))
+    {
+      FINROC_LOG_PRINT(WARNING, "Creating data port '", port->GetStringAttribute("name"), "' in non-data-port interface '", *list.io_vector, "'");
+    }
+
     list.CheckPort(ap, *list.io_vector, list.flags, port->GetStringAttribute("name"), dt, create_options, NULL);
   }
   for (; i < ports.size(); i++)
   {
     ports[i]->ManagedDelete();
+  }
+
+  if (missing_types.size())
+  {
+    std::string error_message = "Error creating ports in '" + list.io_vector->GetName() + "' because of missing types: " + rrlib::util::Join(missing_types, "; ");
+    FINROC_LOG_PRINT_STATIC(ERROR, error_message);
+    throw std::runtime_error(error_message);
   }
 
   return node;

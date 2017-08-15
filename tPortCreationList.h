@@ -206,7 +206,7 @@ private:
 
   /*!
    * Deal only with ports flagged finstructed? (for local Runtimes)
-   * Crated ports will be flagged finstructed. Only ports flagged finstructed will be deleted.
+   * Created ports will be flagged finstructed. Only ports flagged finstructed will be deleted.
    * (Used for editable interfaces in groups)
    */
   bool ports_flagged_finstructed;

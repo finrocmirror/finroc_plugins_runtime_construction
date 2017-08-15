@@ -112,7 +112,7 @@ void tEditableInterfaces::AddInterface(core::tPortGroup& interface, tPortCreateO
   }
 }
 
-void tEditableInterfaces::LoadInterfacePorts(const rrlib::xml::tNode& node)
+core::tPortGroup& tEditableInterfaces::LoadInterfacePorts(const rrlib::xml::tNode& node)
 {
   std::string name = node.GetStringAttribute("name");
   for (auto & interface : editable_interfaces)
@@ -121,7 +121,7 @@ void tEditableInterfaces::LoadInterfacePorts(const rrlib::xml::tNode& node)
     {
       tPortCreationList port_creation_list(*interface.first, interface.first->GetDefaultPortFlags(), interface.second);
       node >> port_creation_list;
-      return;
+      return *interface.first;
     }
   }
   throw new std::runtime_error("There is no editable interface called '" + name + "'");
