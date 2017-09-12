@@ -374,7 +374,7 @@ void tFinstructable::LoadXml()
               {
                 for (auto it = loaded_interface.ChildPortsBegin(); it != loaded_interface.ChildPortsEnd(); ++it)
                 {
-                  if (it->GetDataType().GetTypeTraits() & rrlib::rtti::trait_flags::cIS_RPC_TYPE)
+                  if (it->GetDataType().GetTypeClassification() == rrlib::rtti::tTypeClassification::RPC_TYPE)
                   {
                     core::tFrameworkElement* services_interface = nullptr;
                     for (auto child_interface = GetFrameworkElement()->ChildrenBegin(); child_interface != GetFrameworkElement()->ChildrenEnd(); ++child_interface)
@@ -490,7 +490,7 @@ void tFinstructable::LoadXml()
               {
                 core::tAbstractPort* service_source_port = GetChildPort(ReplaceInterfaceInPath(source_uri_parsed.path, "Services"));
                 core::tAbstractPort* service_destination_port = GetChildPort(ReplaceInterfaceInPath(destination_uri_parsed.path, "Services"));
-                if (service_source_port && service_destination_port && (service_source_port->GetDataType().GetTypeTraits() & rrlib::rtti::trait_flags::cIS_RPC_TYPE))
+                if (service_source_port && service_destination_port && service_source_port->GetDataType().GetTypeClassification() == rrlib::rtti::tTypeClassification::RPC_TYPE)
                 {
                   FINROC_LOG_PRINT(WARNING, "Adjusted connector's interfaces to service interfaces (auto-update loading legacy files): now connects '", *service_source_port, "' and '", *service_destination_port, "'");
                   source_port = service_source_port;

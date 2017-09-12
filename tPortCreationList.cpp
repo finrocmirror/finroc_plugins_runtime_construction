@@ -398,11 +398,11 @@ const rrlib::xml::tNode& operator >> (const rrlib::xml::tNode& node, tPortCreati
       missing_types.insert(dt_name);
       continue;
     }
-    if ((dt.GetTypeTraits() & rrlib::rtti::trait_flags::cIS_RPC_TYPE) && (!list.io_vector->GetFlag(core::tFrameworkElementFlag::INTERFACE_FOR_RPC_PORTS)))
+    if (dt.GetTypeClassification() == rrlib::rtti::tTypeClassification::RPC_TYPE && (!list.io_vector->GetFlag(core::tFrameworkElementFlag::INTERFACE_FOR_RPC_PORTS)))
     {
       FINROC_LOG_PRINT(WARNING, "Creating RPC port '", port->GetStringAttribute("name"), "' in non-RPC-port interface '", *list.io_vector, "'");
     }
-    if ((dt.GetTypeTraits() & rrlib::rtti::trait_flags::cIS_RPC_TYPE) && (!list.io_vector->GetFlag(core::tFrameworkElementFlag::INTERFACE_FOR_DATA_PORTS)))
+    if (dt.GetTypeClassification() != rrlib::rtti::tTypeClassification::RPC_TYPE && (!list.io_vector->GetFlag(core::tFrameworkElementFlag::INTERFACE_FOR_DATA_PORTS)))
     {
       FINROC_LOG_PRINT(WARNING, "Creating data port '", port->GetStringAttribute("name"), "' in non-data-port interface '", *list.io_vector, "'");
     }
