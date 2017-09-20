@@ -37,6 +37,7 @@
 #include <dirent.h>
 #include <unistd.h>
 #include "rrlib/xml/tNode.h"
+#include "rrlib/util/string.h"
 #include "core/tRuntimeEnvironment.h"
 #include "plugins/parameters/tConfigurablePlugin.h"
 
@@ -241,7 +242,7 @@ std::set<tSharedLibrary> GetLoadedFinrocLibraries()
   while (!maps.eof())
   {
     std::getline(maps, line);
-    if (line.find("/libfinroc_") != std::string::npos && line.substr(line.length() - 3, 3).compare(".so") == 0)
+    if (line.find("/libfinroc_") != std::string::npos && (rrlib::util::EndsWith(line, ".so") || line.rfind(".so.") == line.length() - 9))
     {
       tSharedLibrary loaded = line.substr(line.find("/libfinroc_") + 1);
       if (result.find(loaded) == result.end())
@@ -250,7 +251,7 @@ std::set<tSharedLibrary> GetLoadedFinrocLibraries()
         result.insert(loaded);
       }
     }
-    else if (line.find("/librrlib_") != std::string::npos && line.substr(line.length() - 3, 3).compare(".so") == 0)
+    else if (line.find("/librrlib_") != std::string::npos && (rrlib::util::EndsWith(line, ".so") || line.rfind(".so.") == line.length() - 9))
     {
       tSharedLibrary loaded = line.substr(line.find("/librrlib_") + 1);
       if (result.find(loaded) == result.end())
