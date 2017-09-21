@@ -500,7 +500,7 @@ rrlib::serialization::tMemoryBuffer tAdministrationService::LoadModuleLibrary(co
   {
     FINROC_LOG_PRINT(ERROR, exception);
   }
-  return GetCreateModuleActions();
+  return rrlib::serialization::tMemoryBuffer(0);
 }
 
 std::string tAdministrationService::NetworkConnect(int local_port_handle, const std::string& preferred_transport,
