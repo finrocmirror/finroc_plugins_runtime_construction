@@ -919,17 +919,17 @@ void tFinstructable::SaveXml()
           {
             conversion.SetAttribute(conversion_operations.Size() == 2 ? "parameter1" : "parameter", conversion_operations.GetParameterValue(0).ToString());
           }
-          if (conversion_operations.Size() == 2)
-          {
-            conversion.SetAttribute("operation2", conversion_operations[1].first);
-            if (conversion_operations.GetParameterValue(0))
-            {
-              conversion.SetAttribute("parameter2", conversion_operations.GetParameterValue(1).ToString());
-            }
-          }
           if (conversion_operations.IntermediateType())
           {
             conversion.SetAttribute("intermediate_type", conversion_operations.IntermediateType().GetName());
+          }
+          if (conversion_operations.Size() == 2)
+          {
+            conversion.SetAttribute("operation2", conversion_operations[1].first);
+            if (conversion_operations.GetParameterValue(1))
+            {
+              conversion.SetAttribute("parameter2", conversion_operations.GetParameterValue(1).ToString());
+            }
           }
         }
 
