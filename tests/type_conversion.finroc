@@ -1,0 +1,71 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Finstructable defaultname="Type Conversion" version="1703" dependencies="finroc_plugins_runtime_construction_test_types">
+  <interface name="Controller Output">
+    <port name="uint32" type="uint32"/>
+    <port name="MemoryBuffer" type="rrlib.serialization.MemoryBuffer"/>
+    <port name="double" type="double"/>
+    <port name="uint8" type="uint8"/>
+    <port name="MemoryBuffer2" type="rrlib.serialization.MemoryBuffer"/>
+    <port name="ExtendedMemoryBuffer" type="finroc.runtime_construction.tests.ExtendedMemoryBuffer"/>
+    <port name="int" type="int32"/>
+    <port name="uchar" type="uint8"/>
+    <port name="double_rep" type="double"/>
+    <port name="uchar_rep" type="uint8"/>
+    <port name="uint8_rep" type="uint8"/>
+    <port name="double vector" type="List&lt;double&gt;"/>
+    <port name="int32" type="int32"/>
+    <port name="int8" type="int8"/>
+    <port name="_int8_" type="int8"/>
+    <port name="String[2]" type="int8"/>
+  </interface>
+  <element name="Group 1" group="finroc_plugins_structure" type="Group">
+    <parameters>
+      <parameter name="Manages Parameter Configuration">false</parameter>
+      <parameter name="XML file">plugins/runtime_construction/tests/type_conversion_group.xml</parameter>
+    </parameters>
+  </element>
+  <edge src="Group 1/Output/Array%3Cuint8, 8%3E" dest="Controller Output/MemoryBuffer">
+    <conversion operation1="ToVector" intermediate_type="List&lt;uint8&gt;" operation2="Wrap"/>
+  </edge>
+  <edge src="Group 1/Output/Array%3Cuint8, 8%3E" dest="Controller Output/double">
+    <conversion operation1="[]" parameter1="2" intermediate_type="uint8" operation2="static_cast"/>
+  </edge>
+  <edge src="Group 1/Output/MemoryBuffer" dest="Controller Output/uint32">
+    <conversion operation1="Binary Deserialization" intermediate_type="Tuple&lt;Pair&lt;uint8, uint8&gt;, uint32, uint16&gt;" operation2="get" parameter2="1"/>
+  </edge>
+  <edge src="Group 1/Output/MemoryBuffer2" dest="Controller Output/int">
+    <conversion operation1="Wrap Again" intermediate_type="finroc.runtime_construction.tests.ExtendedMemoryBuffer" operation2="static_cast"/>
+  </edge>
+  <edge src="Group 1/Output/MemoryBuffer2" dest="Controller Output/uchar">
+    <conversion operation1="Wrap Again" intermediate_type="finroc.runtime_construction.tests.ExtendedMemoryBuffer" operation2="static_cast"/>
+  </edge>
+  <edge src="Group 1/Output/String%5B2%5D" dest="Controller Output/String%5B2%5D"/>
+  <edge src="Group 1/Output/_int8_" dest="Controller Output/_int8_"/>
+  <edge src="Group 1/Output/double" dest="Controller Output/double_rep"/>
+  <edge src="Group 1/Output/double vector" dest="Controller Output/double vector"/>
+  <edge src="Group 1/Output/int32" dest="Controller Output/int32"/>
+  <edge src="Group 1/Output/int8" dest="Controller Output/int8"/>
+  <edge src="Group 1/Output/uchar" dest="Controller Output/uchar_rep"/>
+  <edge src="Group 1/Output/uint8" dest="Controller Output/uint8_rep"/>
+  <edge src="Group 1/Output/uint8 vector" dest="Controller Output/ExtendedMemoryBuffer">
+    <conversion operation1="Wrap" intermediate_type="rrlib.serialization.MemoryBuffer" operation2="Wrap Again"/>
+  </edge>
+  <edge src="Group 1/Output/vector%3Cvector%3Cuint8%3E%3E" dest="Controller Output/MemoryBuffer2">
+    <conversion operation1="[]" parameter1="1" intermediate_type="List&lt;uint8&gt;" operation2="Wrap"/>
+  </edge>
+  <edge src="Group 1/Output/vector%3Cvector%3Cuint8%3E%3E" dest="Controller Output/uint8">
+    <conversion operation1="[]" parameter1="2" intermediate_type="List&lt;uint8&gt;" operation2="[]" parameter2="0"/>
+  </edge>
+  <edge src="Profiling/Execution Duration" dest="Group 1/Input/String" flags="Optional (2)">
+    <conversion operation="ToString"/>
+  </edge>
+  <edge src="Profiling/Execution Duration" dest="Group 1/Input/Tuple">
+    <conversion operation1="Binary Serialization" intermediate_type="rrlib.serialization.MemoryBuffer" operation2="Binary Deserialization"/>
+  </edge>
+  <edge src="Profiling/Execution Duration" dest="Group 1/Input/int8 vector">
+    <conversion operation1="ToString" intermediate_type="String" operation2="ToVector"/>
+  </edge>
+  <edge src="Profiling/Execution Duration" dest="Group 1/Input/uint8 vector">
+    <conversion operation1="Binary Serialization" intermediate_type="rrlib.serialization.MemoryBuffer" operation2="static_cast"/>
+  </edge>
+</Finstructable>

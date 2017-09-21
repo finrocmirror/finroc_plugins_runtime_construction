@@ -31,5 +31,17 @@
       pFinrocRun.cpp
     </sources>
   </program>
+  
+  <program name="type_conversion">
+    <sources>
+      tests/type_conversion.cpp
+    </sources>
+  </program>
+
+  <library name="test_types">
+    <sources>
+      tests/test_types.cpp
+    </sources>
+  </library>
 
 </targets>

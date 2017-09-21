@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Finstructable version="1703" dependencies="finroc_plugins_runtime_construction_test_types">
+  <interface name="Input">
+    <port name="int8 vector" type="List&lt;int8&gt;"/>
+    <port name="uint8 vector" type="List&lt;uint8&gt;"/>
+    <port name="String" type="String"/>
+    <port name="Tuple" type="Tuple&lt;Pair&lt;uint8, uint8&gt;, int32, int16&gt;"/>
+  </interface>
+  <interface name="Output">
+    <port name="uint8" type="uint8"/>
+    <port name="int8" type="int8"/>
+    <port name="int32" type="int32"/>
+    <port name="MemoryBuffer" type="rrlib.serialization.MemoryBuffer"/>
+    <port name="String[2]" type="int8"/>
+    <port name="Array&lt;uint8, 8&gt;" type="Array&lt;uint8, 8&gt;"/>
+    <port name="uchar" type="uint8"/>
+    <port name="MemoryBuffer2" type="rrlib.serialization.MemoryBuffer"/>
+    <port name="double" type="double"/>
+    <port name="_int8_" type="int8"/>
+    <port name="vector&lt;vector&lt;uint8&gt;&gt;" type="List&lt;List&lt;uint8&gt;&gt;"/>
+    <port name="double vector" type="List&lt;double&gt;"/>
+    <port name="uint8 vector" type="List&lt;uint8&gt;"/>
+  </interface>
+  <edge src="Input/String" dest="Output/String%5B2%5D">
+    <conversion operation1="ToVector" intermediate_type="List&lt;int8&gt;" operation2="[]" parameter2="2"/>
+  </edge>
+  <edge src="Input/String" dest="Output/vector%3Cvector%3Cuint8%3E%3E">
+    <conversion operation="ToVectorVector"/>
+  </edge>
+  <edge src="Input/Tuple" dest="Output/int32">
+    <conversion operation="get" parameter="1"/>
+  </edge>
+  <edge src="Input/Tuple" dest="Output/uint8">
+    <conversion operation1="get" parameter1="0" intermediate_type="Pair&lt;uint8, uint8&gt;" operation2="get" parameter2="1"/>
+  </edge>
+  <edge src="Input/int8 vector" dest="Output/MemoryBuffer2">
+    <conversion operation1="static_cast" intermediate_type="List&lt;uint8&gt;" operation2="Wrap"/>
+  </edge>
+  <edge src="Input/int8 vector" dest="Output/double vector">
+    <conversion operation1="For Each" intermediate_type="int8" operation2="static_cast"/>
+  </edge>
+  <edge src="Input/int8 vector" dest="Output/int8">
+    <conversion operation="[]" parameter="1"/>
+  </edge>
+  <edge src="Input/int8 vector" dest="Output/uchar">
+    <conversion operation1="static_cast" intermediate_type="List&lt;uint8&gt;" operation2="[]" parameter2="1"/>
+  </edge>
+  <edge src="Input/uint8 vector" dest="Output/Array%3Cuint8, 8%3E">
+    <conversion operation1="Wrap" intermediate_type="rrlib.serialization.MemoryBuffer" operation2="Binary Deserialization"/>
+  </edge>
+  <edge src="Input/uint8 vector" dest="Output/MemoryBuffer">
+    <conversion operation="Wrap"/>
+  </edge>
+  <edge src="Input/uint8 vector" dest="Output/_int8_">
+    <conversion operation1="[]" parameter1="2" intermediate_type="uint8" operation2="static_cast"/>
+  </edge>
+  <edge src="Input/uint8 vector" dest="Output/double">
+    <conversion operation1="[]" parameter1="1" intermediate_type="uint8" operation2="static_cast"/>
+  </edge>
+  <edge src="Input/uint8 vector" dest="Output/uint8 vector"/>
+</Finstructable>
