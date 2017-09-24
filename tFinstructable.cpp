@@ -117,9 +117,14 @@ tFinstructable::tFinstructable(const std::string& xml_file) :
 
 void tFinstructable::AddDependency(const tSharedLibrary& dependency)
 {
-  if (&rrlib::thread::tThread::CurrentThread() == saving_thread && startup_loaded_finroc_libs.find(dependency) == startup_loaded_finroc_libs.end())
+#ifndef RRLIB_SINGLE_THREADED
+  if (&rrlib::thread::tThread::CurrentThread() == saving_thread)
+#endif
   {
-    dependencies_tmp.insert(dependency);
+    if (startup_loaded_finroc_libs.find(dependency) == startup_loaded_finroc_libs.end())
+    {
+      dependencies_tmp.insert(dependency);
+    }
   }
 }
 
@@ -779,7 +784,9 @@ void tFinstructable::SaveXml()
 {
   {
     rrlib::thread::tLock lock2(core::tRuntimeEnvironment::GetInstance().GetStructureMutex());
+#ifndef RRLIB_SINGLE_THREADED
     saving_thread = &rrlib::thread::tThread::CurrentThread();
+#endif
     dependencies_tmp.clear();
     std::string save_to = core::GetFinrocFileToSaveTo(GetXmlFileString());
     if (save_to.length() == 0)
