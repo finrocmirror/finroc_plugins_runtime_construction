@@ -40,6 +40,7 @@
 //----------------------------------------------------------------------
 // Internal includes with ""
 //----------------------------------------------------------------------
+#include "plugins/runtime_construction/tFinstructable.h"
 #include "plugins/runtime_construction/tests/test_types.h"
 
 //----------------------------------------------------------------------
@@ -87,6 +88,42 @@ private:
     main_thread->ManagedDelete();
   }
 
+  void CheckSavedFileEqualsLoaded(core::tFrameworkElement& composite_component, const std::string& file_name)
+  {
+    // Read original file
+    auto original_file = fopen(core::GetFinrocFile(file_name, core::tFileType::REGULAR).c_str(), "r");
+    if (!original_file)
+    {
+      throw std::runtime_error("Cannot open file " + file_name);
+    }
+    fseek(original_file, 0L, SEEK_END);
+    size_t original_file_size = ftell(original_file);
+    fseek(original_file, 0L, SEEK_SET);
+    char original_file_content[original_file_size];
+    fread(original_file_content, 1, original_file_size, original_file);
+    fclose(original_file);
+
+    // Save XML
+    runtime_construction::tFinstructable* finstructable = composite_component.GetAnnotation<runtime_construction::tFinstructable>();
+    assert(finstructable);
+    finstructable->SaveXml();
+
+    // Read new file
+    auto new_file = fopen(core::GetFinrocFile(file_name, core::tFileType::REGULAR).c_str(), "r");
+    if (!new_file)
+    {
+      throw std::runtime_error("Cannot open file " + file_name);
+    }
+    fseek(new_file, 0L, SEEK_END);
+    size_t new_file_size = ftell(new_file);
+    fseek(new_file, 0L, SEEK_SET);
+    char new_file_content[new_file_size];
+    fread(new_file_content, 1, new_file_size, new_file);
+    fclose(new_file);
+
+    RRLIB_UNIT_TESTS_ASSERT(new_file_size == original_file_size && memcmp(original_file_content, new_file_content, new_file_size) == 0);
+  }
+
   void TestConversion()
   {
     rrlib::time::tTimestamp start = rrlib::time::Now() - std::chrono::milliseconds(2);
@@ -102,6 +139,9 @@ private:
         data_port.ResetChanged();
       }
     }
+
+    CheckSavedFileEqualsLoaded(*main_thread, "plugins/runtime_construction/tests/type_conversion.finroc");
+    CheckSavedFileEqualsLoaded(*main_thread->GetChild("Group 1"), "plugins/runtime_construction/tests/type_conversion_group.xml");
   }
 };
 

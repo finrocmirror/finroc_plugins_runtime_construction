@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<Finstructable defaultname="Type Conversion" version="1703" dependencies="finroc_plugins_runtime_construction_test_types">
+<Finstructable defaultname="Type Conversion" version="1703" dependencies="finroc_plugins_runtime_construction_test_types, finroc_plugins_structure">
   <interface name="Controller Output">
     <port name="uint32" type="uint32"/>
     <port name="MemoryBuffer" type="rrlib.serialization.MemoryBuffer"/>
