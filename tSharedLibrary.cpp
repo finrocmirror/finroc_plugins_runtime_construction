@@ -32,6 +32,7 @@
 //----------------------------------------------------------------------
 // External includes (system with <>, local with "")
 //----------------------------------------------------------------------
+#include "core/version.h"
 
 //----------------------------------------------------------------------
 // Internal includes with ""
@@ -102,11 +103,11 @@ tSharedLibrary::tSharedLibrary(const char* library_name) :
   *this = tSharedLibrary(std::string(library_name));
 }
 
-std::string tSharedLibrary::ToString(bool platform_dependent) const
+std::string tSharedLibrary::ToString(bool platform_dependent, bool with_soname) const
 {
   if (platform_dependent)
   {
-    return "lib" + name + ".so";
+    return "lib" + name + ".so" + (with_soname ? "." + finroc::VersionString() : "");
   }
   return name;
 }

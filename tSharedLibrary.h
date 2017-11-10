@@ -94,9 +94,10 @@ public:
 
   /**
    * \param platform_dependent Return platform-dependent name of shared library? (lib*.so on Linux)
+   * \param with_soname        Add soname when using platform-dependent name? (lib*.so.<major>.<minor> on Linux)
    * \return Returns file name of shared library (without path)
    */
-  std::string ToString(bool platform_dependent = false) const;
+  std::string ToString(bool platform_dependent = false, bool with_soname = true) const;
 
 //----------------------------------------------------------------------
 // Private fields and methods

@@ -166,6 +166,14 @@ bool DLOpen(const tSharedLibrary& open)
     core::internal::tPlugins::GetInstance().InitializeNewPlugins();
     return true;
   }
+  FINROC_LOG_PRINTF(WARNING, "Error from dlopen: %s. Will try without soname.", dlerror());
+  handle = dlopen(open.ToString(true, false).c_str(), RTLD_NOW | RTLD_GLOBAL);
+  if (handle)
+  {
+    tDLCloserInstance::Instance().loaded.push_back(handle);
+    core::internal::tPlugins::GetInstance().InitializeNewPlugins();
+    return true;
+  }
   FINROC_LOG_PRINTF(ERROR, "Error from dlopen: %s", dlerror());
   return false;
 }
@@ -247,7 +255,7 @@ std::set<tSharedLibrary> GetLoadedFinrocLibraries()
       tSharedLibrary loaded = line.substr(line.find("/libfinroc_") + 1);
       if (result.find(loaded) == result.end())
       {
-        FINROC_LOG_PRINT(DEBUG_VERBOSE_1, "Found loaded finroc library: ", loaded.ToString(true));
+        FINROC_LOG_PRINT(DEBUG_VERBOSE_1, "Found loaded finroc library: ", loaded.ToString(true, !rrlib::util::EndsWith(line, ".so")));
         result.insert(loaded);
       }
     }
@@ -256,7 +264,7 @@ std::set<tSharedLibrary> GetLoadedFinrocLibraries()
       tSharedLibrary loaded = line.substr(line.find("/librrlib_") + 1);
       if (result.find(loaded) == result.end())
       {
-        FINROC_LOG_PRINT(DEBUG_VERBOSE_1, "Found loaded finroc library: ", loaded.ToString(true));
+        FINROC_LOG_PRINT(DEBUG_VERBOSE_1, "Found loaded finroc library: ", loaded.ToString(true, !rrlib::util::EndsWith(line, ".so")));
         result.insert(loaded);
       }
     }
